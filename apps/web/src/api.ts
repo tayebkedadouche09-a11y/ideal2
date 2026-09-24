@@ -178,3 +178,31 @@ export const fetchPortalHome = async (): Promise<Partial<PortalData>> => {
   ]);
   return { clients: profile.clients, projects: projects.projects, invoices: invoices.invoices, payments: payments.payments, documents: documents.documents, communications: communications.communications };
 };
+
+
+export interface CaptureItem {
+  id:string; capture_type:string; project_id:string|null; document_id:string|null;
+  title:string|null; note:string|null; latitude:number|null; longitude:number|null;
+  file_name?:string|null; mime_type?:string|null; size_bytes?:number|null; created_at:string;
+}
+export const fetchProjectCaptures = (projectId:string) => api<{captures:CaptureItem[]}>(`/projects/${projectId}/captures`);
+export async function uploadCapture(file:File, fields:{capture_type:string;project_id?:string;title?:string;note?:string;latitude?:number;longitude?:number}):Promise<{id:string;documentId:string}> {
+  const fd=new FormData(); fd.append('file',file);
+  Object.entries(fields).forEach(([k,v])=>{ if(v!==undefined&&v!==null) fd.append(k,String(v)); });
+  return api('/captures/upload',{method:'POST',body:fd});
+}
+export async function fetchCaptureBlob(id:string):Promise<Blob>{
+  const s=getAuth(); const res=await fetch(`${BASE}/captures/${id}/content`,{headers:s?{authorization:`Bearer ${s.accessToken}`}:{}});
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.blob();
+}
+
+export interface KnowledgeItem { id:string; title:string; content:string; kind:string; project_id:string|null; tags:string[]; confidence:number|null; created_at:string; created_by_name?:string|null; }
+export const fetchKnowledge = (qs='') => api<{items:KnowledgeItem[]}>(`/knowledge${qs}`);
+export const createKnowledge = (body:unknown) => api<{id:string}>('/knowledge',{method:'POST',body:JSON.stringify(body)});
+export const deleteKnowledge = (id:string) => api<{ok:boolean}>(`/knowledge/${id}`,{method:'DELETE'});
+
+export interface ApprovalRequest { id:string; action:string; entity_type:string|null; entity_id:string|null; amount:number|null; risk:string; status:string; reason:string; decision_note:string|null; requested_by_name?:string|null; created_at:string; }
+export const fetchApprovals = (status='') => api<{approvals:ApprovalRequest[]}>(`/approvals${status?`?status=${encodeURIComponent(status)}`:''}`);
+export const createApproval = (body:unknown) => api<{id:string}>('/approvals',{method:'POST',body:JSON.stringify(body)});
+export const decideApproval = (id:string,decision:'approved'|'rejected',note?:string) => api<{ok:boolean;status:string}>(`/approvals/${id}/decision`,{method:'POST',body:JSON.stringify({decision,note})});
