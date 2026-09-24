@@ -90,6 +90,7 @@ export function authRoutes(app: FastifyInstance): void {
         email: user.email,
         companyId: auth.companyId,
         roles: auth.roles,
+        scopes: auth.scopes,
         projectScope: auth.projectScope === 'all' ? 'all' : [...auth.projectScope],
         clientScope: auth.clientScope === 'all' ? 'all' : [...auth.clientScope],
       },
