@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField, Typography } from '@mui/material';
-import { fetchApprovals, decideApproval, createApproval, type ApprovalRequest } from '../api';
+import { fetchApprovals, decideApproval, createApproval, getAuth, type ApprovalRequest } from '../api';
 
 export default function ApprovalCenter(){
+ const role=getAuth()?.user.roles[0]??'worker'; const canCreate=role==='owner'||role==='storekeeper';
  const [rows,setRows]=useState<ApprovalRequest[]>([]);const [error,setError]=useState<string|null>(null);const [open,setOpen]=useState(false);
  const [form,setForm]=useState({action:'',reason:'',risk:'medium',amount:''});
  const load=useCallback(async()=>{try{setRows((await fetchApprovals()).approvals);}catch(e){setError(e instanceof Error?e.message:'Erreur');}},[]);
@@ -10,7 +11,7 @@ export default function ApprovalCenter(){
  async function decide(id:string,d:'approved'|'rejected'){try{await decideApproval(id,d);await load();}catch(e){setError(e instanceof Error?e.message:'Erreur');}}
  async function save(){try{await createApproval({action:form.action,reason:form.reason,risk:form.risk,amount:form.amount?Number(form.amount):undefined});setOpen(false);setForm({action:'',reason:'',risk:'medium',amount:''});await load();}catch(e){setError(e instanceof Error?e.message:'Erreur');}}
  return <Card><CardContent>
-  <Stack direction="row" justifyContent="space-between" sx={{mb:2}}><div><Typography variant="h6">Approval Center</Typography><Typography color="text.secondary">Décisions humaines explicites avant les actions à risque.</Typography></div><Button variant="contained" onClick={()=>setOpen(true)}>+ Demande</Button></Stack>
+  <Stack direction="row" justifyContent="space-between" sx={{mb:2}}><div><Typography variant="h6">Approval Center</Typography><Typography color="text.secondary">Décisions humaines explicites avant les actions à risque.</Typography></div>{canCreate&&<Button variant="contained" onClick={()=>setOpen(true)}>+ Demande</Button>}</Stack>
   {error&&<Alert severity="error" sx={{mb:2}}>{error}</Alert>}
   {rows.map(r=><Card variant="outlined" sx={{mb:1}} key={r.id}><CardContent>
    <Stack direction="row" spacing={1} alignItems="center"><Typography sx={{flexGrow:1}}><b>{r.action}</b></Typography><Chip size="small" label={r.status}/><Chip size="small" label={r.risk}/></Stack>
