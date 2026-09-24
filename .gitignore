@@ -4,3 +4,11 @@ dist/
 *.tsbuildinfo
 coverage/
 .DS_Store
+
+# Capacitor native platforms (regenerate with `npm run cap:add:android` / `cap:add:ios`)
+apps/web/android/
+apps/web/ios/
+
+# Desktop packaging build output
+apps/desktop/release/
+apps/desktop/dist/
