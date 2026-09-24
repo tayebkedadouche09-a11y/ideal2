@@ -54,7 +54,7 @@ export default function FieldOps(){
     for(const item of q){try{await api('/projects/'+item.projectId+'/incidents',{method:'POST',body:JSON.stringify(item)});await deleteQueue(item.id);}catch{}}
     await refreshQueueCount();
   },[deleteQueue,readQueue,refreshQueueCount]);
-  useEffect(()=>{if(online)void syncEmergencyQueue();},[online,syncEmergencyQueue]);line]);
+  useEffect(()=>{if(online)void syncEmergencyQueue();},[online,syncEmergencyQueue]);
   useEffect(()=>{const onBefore=()=>{if(recorder.current?.state==='recording')recorder.current.stop();};window.addEventListener('beforeunload',onBefore);return()=>window.removeEventListener('beforeunload',onBefore);},[]);
 
   async function createEmergency(){
