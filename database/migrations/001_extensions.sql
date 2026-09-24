@@ -2,6 +2,7 @@
 -- Spec §47: core extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Enumerated types used across the system
 CREATE TYPE user_status AS ENUM ('active', 'disabled');
