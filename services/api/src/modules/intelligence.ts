@@ -176,17 +176,6 @@ export function intelligenceRoutes(app: FastifyInstance): void {
     return reply.code(201).send({ id: res.rows[0]!.id });
   });
 
-  app.get('/projects/:id/lessons', async (req) => {
-    requireScope(req, 'projects', 'read');
-    const { id } = req.params as { id: string };
-    assertProjectAccess(req, id);
-    const res = await pool.query(
-      `SELECT l.*, u.full_name AS created_by_name FROM lesson_learned l LEFT JOIN "user" u ON u.id = l.created_by
-        WHERE l.project_id = $1 ORDER BY l.created_at DESC`, [id],
-    );
-    return { lessons: res.rows };
-  });
-
   // Company-wide lessons feed for future intelligence (spec §52)
   app.get('/intelligence/lessons', async (req) => {
     requireScope(req, 'reports', 'read');
