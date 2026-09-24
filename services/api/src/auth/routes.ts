@@ -55,7 +55,10 @@ export function authRoutes(app: FastifyInstance): void {
              WHERE id = $1`,
           [user.id, MAX_FAILED],
         );
-        await audit(req, 'login_failed', 'user', user.id);
+        await audit(req, 'login_failed', 'user', user.id, null, null, {
+          companyId: user.company_id,
+          userId: user.id,
+        });
       }
       return reply.code(401).send({ error: 'Invalid credentials' });
     }
@@ -80,7 +83,11 @@ export function authRoutes(app: FastifyInstance): void {
       `UPDATE "user" SET failed_login_count = 0, locked_until = NULL, last_login_at = now() WHERE id = $1`,
       [user.id],
     );
-    await audit(req, 'login', 'user', user.id);
+    await audit(req, 'login', 'user', user.id, null, null, {
+      companyId: auth.companyId,
+      userId: user.id,
+      role: auth.roles[0] ?? null,
+    });
 
     return {
       accessToken,
