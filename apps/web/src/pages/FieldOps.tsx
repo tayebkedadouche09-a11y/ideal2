@@ -35,7 +35,7 @@ export default function FieldOps(){
   }
   async function syncEmergencyQueue(){
     if(!navigator.onLine)return;
-    const q=JSON.parse(localStorage.getItem('cos.field.queue')||'[]') as {projectId:string;title:string;description:string;severity:string;latitude?:number;longitude?:number}[];
+    const q=JSON.parse(localStorage.getItem(queueKey)||'[]') as {projectId:string;title:string;description:string;severity:string;latitude?:number;longitude?:number}[];
     if(!q.length)return;
     const rest=q.slice();
     for(let i=rest.length-1;i>=0;i--){try{await api(`/projects/${rest[i].projectId}/incidents`,{method:'POST',body:JSON.stringify(rest[i])});rest.splice(i,1);}catch{ /* keep queued */ }}
