@@ -44,7 +44,7 @@ export function syncRoutes(app: FastifyInstance): void {
        RETURNING id`,
       [auth.companyId, auth.userId, body.deviceId, platform, body.label ?? null, body.appVersion ?? null],
     );
-    await audit(req, 'register', 'device_session', res.rows[0]!.id, { deviceId: body.deviceId, platform });
+    await audit(req, 'create', 'device_session', res.rows[0]!.id, { deviceId: body.deviceId, platform });
     return reply.code(201).send({ id: res.rows[0]!.id, deviceId: body.deviceId });
   });
 
@@ -134,15 +134,47 @@ export function syncRoutes(app: FastifyInstance): void {
         `UPDATE sync_conflict SET resolution = $1, resolved_by = $2, resolved_at = now() WHERE id = $3`,
         [body.resolution, auth.userId, id],
       );
-      const newStatus = body.resolution === 'cancelled' ? 'rejected' : 'applied';
+      const mutationRes = await c.query<{ entity_type: string; entity_id: string | null; payload: Record<string, unknown> }>(
+        `SELECT entity_type, entity_id, payload FROM sync_mutation WHERE id = $1 AND company_id = $2`,
+        [row.mutation_id, auth.companyId],
+      );
+      const mutation = mutationRes.rows[0];
+      if (!mutation) throw new HttpError(404, 'Mutation not found');
+      if (body.resolution === 'client_wins' || body.resolution === 'merged') {
+        if (!mutation.entity_id) throw new HttpError(400, 'Conflict has no entity_id');
+        await applyResolvedPayload(c, auth.companyId, mutation.entity_type, mutation.entity_id, mutation.payload);
+      }
+      const newStatus = body.resolution === 'cancelled' || body.resolution === 'server_wins' ? 'rejected' : 'applied';
       await c.query(
-        `UPDATE sync_mutation SET status = $1, applied_at = now() WHERE id = $2 AND company_id = $3`,
+        `UPDATE sync_mutation SET status = $1, applied_at = CASE WHEN $1 = 'applied' THEN now() ELSE applied_at END WHERE id = $2 AND company_id = $3`,
         [newStatus, row.mutation_id, auth.companyId],
       );
       return { conflictId: id, resolution: body.resolution };
     });
-    await audit(req, 'resolve', 'sync_conflict', id, { resolution: body.resolution });
+    await audit(req, 'update', 'sync_conflict', id, { resolution: body.resolution });
     return reply.send(out);
+  });
+
+  app.get('/sync/mutations', async (req) => {
+    const auth = requireAuth(req);
+    requireScope(req, 'field', 'read');
+    const q = req.query as { since?: string; limit?: string; status?: string };
+    const since = q.since ? new Date(q.since) : new Date(0);
+    if (Number.isNaN(since.getTime())) throw new HttpError(400, 'Invalid since');
+    const limit = Math.min(Math.max(Number(q.limit ?? 100), 1), 200);
+    const params: unknown[] = [auth.companyId, auth.userId, since.toISOString()];
+    let statusSql = '';
+    if (q.status) { params.push(q.status); statusSql = ' AND status = $4'; }
+    params.push(limit);
+    const res = await pool.query(
+      `SELECT id, client_mutation_id, device_id, entity_type, entity_id, server_entity_id,
+              operation, status, payload, base_version, conflict_reason, applied_at, created_at
+         FROM sync_mutation
+        WHERE company_id = $1 AND user_id = $2 AND created_at > $3${statusSql}
+        ORDER BY created_at ASC LIMIT ${params.length}`,
+      params,
+    );
+    return { mutations: res.rows };
   });
 
   app.get('/sync/conflicts', async (req) => {
@@ -157,6 +189,45 @@ export function syncRoutes(app: FastifyInstance): void {
     );
     return { conflicts: res.rows };
   });
+}
+
+async function applyResolvedPayload(
+  c: import('pg').PoolClient,
+  companyId: string,
+  entityType: string,
+  entityId: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const configs: Record<string, { table: string; columns: string[]; companyWhere: string }> = {
+    project_task: { table: 'project_task', columns: ['title','description','status','planned_start','planned_end','assignee_employee_id'], companyWhere: 'project_id IN (SELECT id FROM project WHERE company_id = COMPANY_PARAM)' },
+    daily_report: { table: 'daily_report', columns: ['report_date','work_performed','manpower_count','problems'], companyWhere: 'company_id = COMPANY_PARAM' },
+    incident: { table: 'incident', columns: ['severity','status','title','description','resolved_at'], companyWhere: 'company_id = COMPANY_PARAM' },
+    capture_item: { table: 'capture_item', columns: ['title','note','latitude','longitude','captured_via','metadata','processing_status'], companyWhere: 'company_id = COMPANY_PARAM' },
+  };
+  const cfg = configs[entityType];
+  if (!cfg) throw new HttpError(400, 'Conflict resolution is not supported for ' + entityType);
+  const entries = Object.entries(payload).filter(([key]) => cfg.columns.includes(key));
+  if (entries.length === 0) throw new HttpError(400, 'No resolvable fields in client payload');
+
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  let i = 1;
+  for (const [key, value] of entries) {
+    sets.push(key + ' = $' + i++);
+    values.push(value);
+  }
+  const entityParam = i++;
+  const companyParam = i++;
+  sets.push('row_version = row_version + 1');
+  values.push(entityId, companyId);
+
+  const where = cfg.companyWhere.replace('COMPANY_PARAM', '$' + companyParam);
+  const res = await c.query(
+    'UPDATE ' + cfg.table + ' SET ' + sets.join(', ') +
+    ' WHERE id = $' + entityParam + ' AND ' + where,
+    values,
+  );
+  if (res.rowCount === 0) throw new HttpError(404, 'Conflict entity not found in company');
 }
 
 async function applyMutation(
@@ -239,16 +310,22 @@ async function applyMutation(
       const table = tableMap[m.entityType];
       if (table) {
         const cur = await c.query<{ row_version: string }>(
-          `SELECT row_version FROM ${table} WHERE id = $1 AND company_id = $2 FOR UPDATE`,
+          `SELECT t.row_version FROM ${table} t ${table === 'project_task' ? 'JOIN project p ON p.id = t.project_id' : ''} WHERE t.id = $1 ${table === 'project_task' ? 'AND p.company_id = $2' : 'AND t.company_id = $2'} FOR UPDATE`,
           [m.entityId, companyId],
         );
         if (cur.rowCount === 0) throw new Error('Entity not found');
         const serverVersion = Number(cur.rows[0]!.row_version);
         if (serverVersion > m.baseVersion) {
+          const current = await c.query<{ row: Record<string, unknown> }>(
+            `SELECT row_to_json(t) AS row FROM ${table} t ${table === 'project_task' ? 'JOIN project p ON p.id = t.project_id' : ''}
+              WHERE t.id = $1 ${table === 'project_task' ? 'AND p.company_id = $2' : 'AND t.company_id = $2'}`,
+            [m.entityId, companyId],
+          );
+          const serverPayload = current.rows[0]?.row ?? { row_version: serverVersion };
           const conf = await c.query<{ id: string }>(
             `INSERT INTO sync_conflict (company_id, mutation_id, entity_type, entity_id, client_payload, server_payload)
              VALUES ($1,$2,$3,$4,$5::jsonb,$6::jsonb) RETURNING id`,
-            [companyId, mutationId, m.entityType, m.entityId, JSON.stringify(m.payload), JSON.stringify({ row_version: serverVersion })],
+            [companyId, mutationId, m.entityType, m.entityId, JSON.stringify(m.payload), JSON.stringify(serverPayload)],
           );
           await c.query(
             `UPDATE sync_mutation SET status = 'conflict', conflict_reason = 'version_mismatch', conflict_server_payload = $1::jsonb WHERE id = $2`,
