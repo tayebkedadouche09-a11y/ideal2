@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
-import { join, extname } from 'node:path';
+import { dirname, join, extname } from 'node:path';
 import { pool, tx } from '../db.js';
 import { config } from '../config.js';
 import { requireScope, assertProjectAccess, assertClientAccess, HttpError } from '../auth/rbac.js';
@@ -20,13 +20,13 @@ const MAX_BYTES = 25 * 1024 * 1024;
 
 async function storeObject(key: string, buffer: Buffer, mimeType: string): Promise<void> {
   if (config.storageProvider !== 'supabase') {
-    const dir = join(config.storageDir);
-    await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, key), buffer);
+    const target = join(config.storageDir, key);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, buffer);
     return;
   }
   if (!config.supabaseUrl || !config.supabaseServiceRoleKey) throw new Error('Supabase Storage is not configured');
-  const url = `${config.supabaseUrl.replace(/\\/$/, '')}/storage/v1/object/${encodeURIComponent(config.supabaseStorageBucket)}/${key.split('/').map(encodeURIComponent).join('/')}`;
+  const url = `${config.supabaseUrl.replace(/\/$/, '')}/storage/v1/object/${encodeURIComponent(config.supabaseStorageBucket)}/${key.split('/').map(encodeURIComponent).join('/')}`;
   const res = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${config.supabaseServiceRoleKey}`, apikey: config.supabaseServiceRoleKey, 'Content-Type': mimeType, 'x-upsert': 'false' }, body: buffer });
   if (!res.ok) throw new Error(`Storage upload failed: ${res.status} ${await res.text()}`);
 }
@@ -35,7 +35,7 @@ async function readObject(key: string, companyId: string): Promise<NodeJS.Readab
   if (config.storageProvider !== 'supabase') return createReadStream(join(config.storageDir, key));
   if (!config.supabaseUrl || !config.supabaseServiceRoleKey) throw new Error('Supabase Storage is not configured');
   const objectKey = key.includes('/') ? key : `${companyId}/${key}`;
-  const url = `${config.supabaseUrl.replace(/\\/$/, '')}/storage/v1/object/authenticated/${encodeURIComponent(config.supabaseStorageBucket)}/${objectKey.split('/').map(encodeURIComponent).join('/')}`;
+  const url = `${config.supabaseUrl.replace(/\/$/, '')}/storage/v1/object/authenticated/${encodeURIComponent(config.supabaseStorageBucket)}/${objectKey.split('/').map(encodeURIComponent).join('/')}`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${config.supabaseServiceRoleKey}`, apikey: config.supabaseServiceRoleKey } });
   if (!res.ok) throw new HttpError(res.status === 404 ? 404 : 502, 'Document storage object unavailable');
   return Buffer.from(await res.arrayBuffer());
