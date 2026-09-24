@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile, createReadStream } from 'node:fs';
+import { writeFile, createReadStream } from 'node:fs';
 import { mkdir as mkdirAsync } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { pool, tx } from '../db.js';
@@ -48,7 +48,7 @@ export function fieldRoutes(app:FastifyInstance):void {
   });
 
   app.get('/captures/:id/content',async(req,reply)=>{
-    requireScope(req,'documents','read'); const auth=requireAuth(req); const {id}=req.params as {id:string};
+    requireScope(req,'field','read'); const auth=requireAuth(req); const {id}=req.params as {id:string};
     const r=await pool.query(`SELECT d.* FROM capture_item c JOIN document d ON d.id=c.document_id WHERE c.id=$1 AND c.company_id=$2`,[id,auth.companyId]);
     const d=r.rows[0]; if(!d) throw new HttpError(404,'Capture not found');
     reply.header('content-type',d.mime_type??'application/octet-stream'); reply.header('content-disposition',`inline; filename="${encodeURIComponent(d.file_name)}"`);
@@ -56,7 +56,7 @@ export function fieldRoutes(app:FastifyInstance):void {
   });
 
   app.get('/knowledge',async(req)=>{
-    requireScope(req,'reports','read'); const auth=requireAuth(req); const q=req.query as {q?:string;kind?:string;project_id?:string};
+    requireScope(req,'field','read'); const auth=requireAuth(req); const q=req.query as {q?:string;kind?:string;project_id?:string};
     const params:unknown[]=[auth.companyId],where=['k.company_id=$1'];
     if(q.q){params.push(`%${q.q}%`);where.push(`(k.title ILIKE $${params.length} OR k.content ILIKE $${params.length})`);}
     if(q.kind){params.push(q.kind);where.push(`k.kind=$${params.length}`);} if(q.project_id){params.push(q.project_id);where.push(`k.project_id=$${params.length}`);}
@@ -64,14 +64,14 @@ export function fieldRoutes(app:FastifyInstance):void {
   });
 
   app.post('/knowledge',async(req,reply)=>{
-    requireScope(req,'reports','read'); const auth=requireAuth(req); const b=(req.body??{}) as {title?:string;content?:string;kind?:string;project_id?:string;tags?:string[];confidence?:number};
+    requireScope(req,'field','write'); const auth=requireAuth(req); const b=(req.body??{}) as {title?:string;content?:string;kind?:string;project_id?:string;tags?:string[];confidence?:number};
     if(!b.title?.trim()||!b.content?.trim()) throw new HttpError(400,'title and content are required'); if(b.project_id) assertProjectAccess(req,b.project_id);
     const r=await pool.query<{id:string}>(`INSERT INTO knowledge_item(company_id,title,content,kind,project_id,tags,confidence,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,[auth.companyId,b.title.trim(),b.content.trim(),b.kind??'general',b.project_id??null,b.tags??[],b.confidence??null,auth.userId]);
     await event(auth.companyId,'knowledge.created','knowledge_item',r.rows[0]!.id,{projectId:b.project_id??null},auth.userId); return reply.code(201).send({id:r.rows[0]!.id});
   });
 
   app.delete('/knowledge/:id',async(req)=>{
-    requireScope(req,'reports','read'); const auth=requireAuth(req); const {id}=req.params as {id:string};
+    requireScope(req,'field','write'); const auth=requireAuth(req); const {id}=req.params as {id:string};
     const r=await pool.query('DELETE FROM knowledge_item WHERE id=$1 AND company_id=$2 RETURNING id',[id,auth.companyId]); if(!r.rowCount) throw new HttpError(404,'Knowledge item not found'); return {ok:true};
   });
 
