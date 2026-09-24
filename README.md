@@ -11,6 +11,9 @@ Système unifié **ERP + Opérations + Automatisation + Intelligence IA** pour u
 | i18n FR / AR (RTL) / EN, formatage DZD | ✅ testé | `packages/i18n` |
 | API REST (Fastify + JWT + refresh rotation + RBAC + audit) | ✅ | `services/api` |
 | Web React + MUI : login, shell par rôle, devis, Project 360°, achats, stock, flotte, documents, portail client | ✅ | `apps/web` |
+| Universal Capture + Voice-to-Work | ✅ | `services/api/src/modules/field.ts` + `apps/web/src/pages/FieldOps.tsx` |
+| Company Memory + Lessons Learned | ✅ | `knowledge_item` + `/knowledge` |
+| Human Approval Center + Event Spine | ✅ | `approval_request` + `business_event` |
 | n8n, mobile offline-first, RAG/IA, OCR | 📋 Phase 3–5 | voir `docs/ARCHITECTURE.md` |
 
 ## Démarrage
@@ -19,7 +22,7 @@ Système unifié **ERP + Opérations + Automatisation + Intelligence IA** pour u
 npm install
 docker compose up -d postgres redis      # PostgreSQL 16 + Redis 7 (port 5432)
 cp .env.example .env
-npm run db:migrate                       # applique les 11 migrations (suivi schema_migrations)
+npm run db:migrate                       # applique les migrations (suivi schema_migrations)
 npm run db:bootstrap                     # crée l'entreprise + owner (compte RÉEL, demandé dans le terminal)
 npm run build && npm test                # domaine + i18n (node:test) — 20 tests
 npm run typecheck:api && npm run typecheck:web
@@ -42,4 +45,7 @@ Client → Contrat → Devis → Projet (chantier) → Mesures → Calcul matér
 - **Isolation multi-tenant** : `company_id` sur chaque enregistrement, vérifié serveur.
 - **Portée d'enregistrement** : ingénieur/ouvrier → projets assignés uniquement ; client portail → ses clients liés uniquement.
 - **Paiements append-only** : correction via `payment_reversal`, jamais de suppression silencieuse.
+- **Capture terrain** : photos, documents et Voice-to-Work sont liés au chantier et persistés avec métadonnées/audit.
+- **Company Memory** : les connaissances et leçons sont persistées, recherchables et liées aux projets.
+- **Approval Center** : les actions à risque passent par une décision humaine explicite, avec audit.
 - **Règles fiscales configurables** (`tax_rate` en base), jamais de taux codé en dur — à valider avec un expert-comptable algérien avant production (spéc. §71).
