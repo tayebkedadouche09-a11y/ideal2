@@ -21,7 +21,8 @@ import CompanyMemory from './pages/CompanyMemory';
 import ApprovalCenter from './pages/ApprovalCenter';
 import Chat from './pages/Chat';
 import Shell from './components/Shell';
-import { getAuth, setAuth, type AuthSession, fetchDashboard, type DashboardData } from './api';
+import { getAuth, setAuth, type AuthSession, fetchDashboard, type DashboardData, api } from './api';
+import { startOutboxAutoSync } from './offline/outbox';
 import { dir, type Locale } from '@company-os/i18n';
 
 export default function App() {
@@ -31,6 +32,11 @@ export default function App() {
   useEffect(() => {
     if (!session) return;
     fetchDashboard().then(setDashboard).catch(() => setSession(null));
+  }, [session]);
+
+  useEffect(() => {
+    if (!session || session.user.roles[0] === 'customer') return;
+    return startOutboxAutoSync(api);
   }, [session]);
 
   const locale: Locale = (localStorage.getItem('cos.locale') as Locale) ?? 'fr';
