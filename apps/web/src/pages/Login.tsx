@@ -26,8 +26,8 @@ export default function Login({ onLoggedIn }: Props) {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}>
-      <Card sx={{ minWidth: 340 }}>
+    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default', p: 2 }}>
+      <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent>
           <Typography variant="h5" gutterBottom>
             Company OS

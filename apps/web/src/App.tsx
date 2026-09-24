@@ -60,7 +60,7 @@ export default function App() {
   return (
     <Box dir={direction} sx={{ display: 'flex', minHeight: '100vh' }}>
       <Shell session={session} onLocale={(l) => { localStorage.setItem('cos.locale', l); location.reload(); }} />
-      <Box component="main" sx={{ flexGrow: 1, p: 3, minWidth: 0 }}>
+      <Box component="main" sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2, md: 3 }, minWidth: 0, width: '100%' }}>
         <Toolbar />
         <Routes>
           <Route path="/" element={<Dashboard data={dashboard} />} />

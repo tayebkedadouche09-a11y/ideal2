@@ -16,6 +16,12 @@ interface Props {
 
 type Row = Record<string, unknown>;
 
+/** Turn a snake_case column key into a readable label. */
+function humanize(key: string): string {
+  const s = key.replace(/_id$/, '').replace(/_/g, ' ').trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export default function ResourcePage({ resource, titleKey, columns, createFields, linkRow }: Props) {
   const locale: Locale = (localStorage.getItem('cos.locale') as Locale) ?? 'fr';
   const [rows, setRows] = useState<Row[]>([]);
@@ -86,7 +92,7 @@ export default function ResourcePage({ resource, titleKey, columns, createFields
               <TableHead>
                 <TableRow>
                   {columns.map((c) => (
-                    <TableCell key={c}>{c}</TableCell>
+                    <TableCell key={c}>{humanize(c)}</TableCell>
                   ))}
                 </TableRow>
               </TableHead>
@@ -112,13 +118,13 @@ export default function ResourcePage({ resource, titleKey, columns, createFields
         )}
       </CardContent>
 
-      <Dialog open={open} onClose={() => setOpen(false)}>
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>{translate(locale, 'common.create')}</DialogTitle>
         <DialogContent>
           {(createFields ?? []).map((f) => (
             <TextField
               key={f}
-              label={f}
+              label={humanize(f)}
               value={form[f] ?? ''}
               onChange={(e) => setForm((prev) => ({ ...prev, [f]: e.target.value }))}
               select={fieldOptions[f] !== undefined}
