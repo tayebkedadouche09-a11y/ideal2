@@ -24,6 +24,7 @@ import { automationRoutes } from './modules/automation.js';
 import { chatRoutes } from './modules/chat.js';
 import { engineeringRoutes } from './modules/engineering.js';
 import { fieldRoutes } from './modules/field.js';
+import { syncRoutes } from './modules/sync.js';
 import { HttpError } from './auth/rbac.js';
 // app.config declaration merged via module augmentation
 declare module 'fastify' {
@@ -88,6 +89,7 @@ automationRoutes(app);
 chatRoutes(app);
   engineeringRoutes(app);
 fieldRoutes(app);
+syncRoutes(app);
 
 app.get('/health', { onRequest: [] }, async () => ({ status: 'ok', time: new Date().toISOString() }));
 
