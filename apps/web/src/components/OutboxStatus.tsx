@@ -58,7 +58,19 @@ export default function OutboxStatus() {
               <ListItem key={m.id} alignItems="flex-start" divider>
                 <ListItemText
                   primary={<Stack direction="row" spacing={1} alignItems="center"><Chip size="small" label={m.status} color={STATUS_COLOR[m.status]} /><Typography variant="body2">{m.entityType} · {m.operation}</Typography></Stack>}
-                  secondary={<Box component="span"><Typography variant="caption" component="span" display="block">{new Date(m.createdAt).toLocaleString()} · retries {m.retryCount}{m.serverEntityId ? ` · server ${m.serverEntityId.slice(0, 8)}…` : ''}</Typography>{m.lastError && <Typography variant="caption" color="error" component="span" display="block">{m.lastError}</Typography></Box>}
+                  secondary={
+  <Box component="span">
+    <Typography variant="caption" component="span" display="block">
+      {new Date(m.createdAt).toLocaleString()} · retries {m.retryCount}
+      {m.serverEntityId ? ' · server ' + m.serverEntityId.slice(0, 8) + '…' : ''}
+    </Typography>
+    {m.lastError ? (
+      <Typography variant="caption" color="error" component="span" display="block">
+        {m.lastError}
+      </Typography>
+    ) : null}
+  </Box>
+}
                 />
               </ListItem>
             ))}
