@@ -33,6 +33,7 @@ const NAV: NavItem[] = [
   { key: 'field', label: 'Field Operations', visibleTo: ['owner', 'engineer', 'team_leader', 'worker'], path: '/field' },
   { key: 'memory', label: 'Company Memory', visibleTo: ['owner', 'accountant', 'engineer', 'team_leader'], path: '/memory' },
   { key: 'approvals', label: 'Approval Center', visibleTo: ['owner', 'accountant'], path: '/approvals' },
+  { key: 'chat', label: 'Company Chat', visibleTo: ['owner', 'engineer', 'team_leader', 'worker'], path: '/chat' },
   { key: 'audit', label: 'nav.audit', visibleTo: ['owner', 'accountant'], path: '/audit' },
   { key: 'portal', label: 'nav.dashboard', visibleTo: ['customer'], path: '/portal' },
 ];
