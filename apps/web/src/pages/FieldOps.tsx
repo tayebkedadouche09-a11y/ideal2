@@ -4,7 +4,7 @@ import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { list, uploadCapture, type CaptureItem } from '../api';
+import { list, uploadCapture, fetchProjectCaptures, type CaptureItem } from '../api';
 
 type Row=Record<string,unknown>;
 
@@ -19,7 +19,7 @@ export default function FieldOps(){
   const chunks=useRef<Blob[]>([]);
 
   const loadProjects=useCallback(async()=>{try{const r=await list<Row>('/projects');setProjects((Object.values(r).find(v=>Array.isArray(v)) as Row[])??[]);}catch(e){setError(e instanceof Error?e.message:'Erreur');}},[]);
-  const loadCaptures=useCallback(async()=>{if(!projectId){setCaptures([]);return;}try{const r=await fetch('/api/v1/projects/'+projectId+'/captures'); if(!r.ok) throw new Error('Impossible de charger les captures'); const d=await r.json() as {captures:CaptureItem[]};setCaptures(d.captures);}catch(e){setError(e instanceof Error?e.message:'Erreur');}},[projectId]);
+  const loadCaptures=useCallback(async()=>{if(!projectId){setCaptures([]);return;}try{const d=await fetchProjectCaptures(projectId);setCaptures(d.captures);}catch(e){setError(e instanceof Error?e.message:'Erreur');}},[projectId]);
   useEffect(()=>{void loadProjects();},[loadProjects]); useEffect(()=>{void loadCaptures();},[loadCaptures]);
 
   async function upload(file:File,type:string){
