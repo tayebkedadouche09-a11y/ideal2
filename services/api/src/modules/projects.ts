@@ -199,19 +199,21 @@ export function projectRoutes(app: FastifyInstance): void {
     return reply.code(201).send(result);
   });
 
-  // Lessons learned are a first-class Project 360 resource.
-  // Keep them project-scoped and company-scoped so the workspace never calls a missing endpoint.
+  // Lessons learned are stored in the Company Memory table as knowledge items.
+  // Project 360 exposes only project-scoped lessons and keeps tenant/RBAC isolation.
   app.get('/projects/:id/lessons', async (req) => {
     requireScope(req, 'projects', 'read');
     const auth = requireAuth(req);
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
     const res = await pool.query(
-      `SELECT l.*, u.full_name AS created_by_name
-         FROM lesson_learned l
-         LEFT JOIN "user" u ON u.id = l.created_by
-        WHERE l.company_id = $1 AND l.project_id = $2
-        ORDER BY l.created_at DESC
+      `SELECT k.*, u.full_name AS created_by_name
+         FROM knowledge_item k
+         LEFT JOIN "user" u ON u.id = k.created_by
+        WHERE k.company_id = $1
+          AND k.project_id = $2
+          AND k.kind = 'lesson'
+        ORDER BY k.created_at DESC
         LIMIT 200`,
       [auth.companyId, id],
     );
