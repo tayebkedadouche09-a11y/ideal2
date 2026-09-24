@@ -108,10 +108,11 @@ export const PERMISSION_MATRIX: Record<Role, Record<Module, PermissionScope>> = 
     customer_portal: 'none', field: 'write',
   },
   customer: {
-    dashboard: 'none', clients: 'none', suppliers: 'none', contracts: 'read', quotes: 'read',
-    projects: 'read', planning: 'none', stock: 'none', purchasing: 'none', employees: 'none',
-    teams: 'none', vehicles: 'none', equipment: 'none', finance: 'read', documents: 'read',
-    communications: 'read', ai: 'none', reports: 'none', settings: 'none', audit: 'none',
+    // Customer accounts are portal-only; internal ERP APIs remain closed.
+    dashboard: 'none', clients: 'none', suppliers: 'none', contracts: 'none', quotes: 'none',
+    projects: 'none', planning: 'none', stock: 'none', purchasing: 'none', employees: 'none',
+    teams: 'none', vehicles: 'none', equipment: 'none', finance: 'none', documents: 'none',
+    communications: 'none', ai: 'none', reports: 'none', settings: 'none', audit: 'none',
     customer_portal: 'read', field: 'none',
   },
 };
