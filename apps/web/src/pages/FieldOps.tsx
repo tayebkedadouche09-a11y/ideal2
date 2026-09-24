@@ -4,14 +4,14 @@ import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { list, uploadCapture, fetchProjectCaptures, type CaptureItem } from '../api';
+import { list, uploadCapture, fetchProjectCaptures, fetchCaptureBlob, type CaptureItem } from '../api';
 
 type Row=Record<string,unknown>;
 
 export default function FieldOps(){
   const [projects,setProjects]=useState<Row[]>([]);
   const [projectId,setProjectId]=useState('');
-  const [captures,setCaptures]=useState<CaptureItem[]>([]);
+  const [captures,setCaptures]=useState<CaptureItem[]>([]); const [mediaUrls,setMediaUrls]=useState<Record<string,string>>({});
   const [recording,setRecording]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
@@ -22,6 +22,7 @@ export default function FieldOps(){
   const loadCaptures=useCallback(async()=>{if(!projectId){setCaptures([]);return;}try{const d=await fetchProjectCaptures(projectId);setCaptures(d.captures);}catch(e){setError(e instanceof Error?e.message:'Erreur');}},[projectId]);
   useEffect(()=>{void loadProjects();},[loadProjects]); useEffect(()=>{void loadCaptures();},[loadCaptures]);
 
+  async function preview(id:string){try{const blob=await fetchCaptureBlob(id);setMediaUrls(v=>({...v,[id]:URL.createObjectURL(blob)}));}catch(e){setError(e instanceof Error?e.message:'Impossible de lire la capture');}}
   async function upload(file:File,type:string){
     if(!projectId)return;setBusy(true);setError(null);
     try{await uploadCapture(file,{capture_type:type,project_id:projectId});await loadCaptures();}
@@ -56,6 +57,10 @@ export default function FieldOps(){
     <Grid container spacing={1}>{captures.map(c=><Grid item xs={12} md={6} key={c.id}><Card variant="outlined"><CardContent>
       <Stack direction="row" spacing={1} alignItems="center"><Chip size="small" label={c.capture_type}/><Typography variant="body2">{new Date(c.created_at).toLocaleString()}</Typography></Stack>
       <Typography variant="body2" sx={{mt:1}}>{c.file_name??c.title??'Capture'}</Typography>
+      {(c.capture_type==='voice'||c.capture_type==='photo'||c.capture_type==='video')&&<Button size="small" onClick={()=>void preview(c.id)}>{mediaUrls[c.id]?'Masquer':'Ouvrir'}</Button>}
+      {mediaUrls[c.id]&&c.capture_type==='voice'&&<audio controls src={mediaUrls[c.id]} style={{width:'100%',marginTop:8}}/>}
+      {mediaUrls[c.id]&&c.capture_type==='photo'&&<img src={mediaUrls[c.id]} alt="Capture terrain" style={{width:'100%',maxHeight:260,objectFit:'contain',marginTop:8}}/>}
+      {mediaUrls[c.id]&&c.capture_type==='video'&&<video controls src={mediaUrls[c.id]} style={{width:'100%',maxHeight:260,marginTop:8}}/>}
       {c.note&&<Typography color="text.secondary">{c.note}</Typography>}
       {c.latitude!=null&&<Typography variant="caption">GPS: {c.latitude}, {c.longitude}</Typography>}
     </CardContent></Card></Grid>)}</Grid>
