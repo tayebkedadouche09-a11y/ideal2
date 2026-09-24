@@ -398,40 +398,6 @@ export function projectRoutes(app: FastifyInstance): void {
     return { profitability };
   });
 
-  // ---------- Engineering: zones (spec §9, §67) ----------
-
-  app.get('/projects/:id/zones', async (req) => {
-    requireScope(req, 'projects', 'read');
-    const { id } = req.params as { id: string };
-    assertProjectAccess(req, id);
-    const res = await pool.query(
-      `SELECT z.*,
-              (SELECT count(*) FROM project_measurement pm WHERE pm.zone_id = z.id) AS measurement_count,
-              (SELECT COALESCE(SUM(pm.area_sqm), 0) FROM project_measurement pm WHERE pm.zone_id = z.id) AS measured_area_sqm
-         FROM project_zone z WHERE z.project_id = $1 ORDER BY z.created_at`, [id],
-    );
-    return { zones: res.rows };
-  });
-
-  app.post('/projects/:id/zones', async (req, reply) => {
-    requireScope(req, 'projects', 'write');
-    const { id } = req.params as { id: string };
-    assertProjectAccess(req, id);
-    const auth = requireAuth(req);
-    const b = (req.body ?? {}) as { name?: string; description?: string; area_sqm?: number; status?: string };
-    if (!b.name) throw new HttpError(400, 'name is required');
-    if (b.status && !['planned', 'in_progress', 'completed', 'blocked'].includes(b.status)) {
-      throw new HttpError(400, 'Invalid status');
-    }
-    const res = await pool.query<{ id: string }>(
-      `INSERT INTO project_zone (company_id, project_id, name, description, area_sqm, status)
-       VALUES ($1,$2,$3,$4,$5,$6::zone_status) RETURNING id`,
-      [auth.companyId, id, b.name, b.description ?? null, b.area_sqm ?? null, b.status ?? 'planned'],
-    );
-    await audit(req, 'create', 'project_zone', res.rows[0]!.id, { project_id: id, name: b.name });
-    return reply.code(201).send({ id: res.rows[0]!.id });
-  });
-
   // BOQ per zone: waste-aware quantities via the domain engine (spec §65),
   // planned totals roll up to the project (single source of truth, spec §7).
   app.get('/projects/:id/boq', async (req) => {
