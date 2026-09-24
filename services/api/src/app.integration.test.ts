@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createApp } from './app.js';
 
 test('API integration: health and authentication boundary', async (t) => {
-  const app = createApp();
+  const app = await createApp();
   t.after(async () => { await app.close(); });
 
   const health = await app.inject({ method: 'GET', url: '/health' });
