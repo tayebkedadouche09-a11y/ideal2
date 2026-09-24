@@ -64,9 +64,6 @@ const en: Dict = {
   'common.confirm': 'Confirm',
   'common.close': 'Close',
   'nav.notifications': 'Notifications',
-  'nav.field': 'Opérations terrain',
-  'nav.memory': 'Mémoire entreprise',
-  'nav.approvals': 'Centre des approbations',
   'nav.field': 'Field Operations',
   'nav.memory': 'Company Memory',
   'nav.approvals': 'Approval Center',
@@ -122,6 +119,9 @@ const fr: Dict = {
   'common.confirm': 'Confirmer',
   'common.close': 'Fermer',
   'nav.notifications': 'Notifications',
+  'nav.field': 'Opérations terrain',
+  'nav.memory': 'Mémoire entreprise',
+  'nav.approvals': 'Centre des approbations',
   'nav.new': 'Nouveau',
 };
 
