@@ -13,7 +13,7 @@ CREATE INDEX idx_quote_version_quote ON quote_version(quote_id, version DESC);
 
 -- Lessons learned after project completion (spec §52)
 CREATE TABLE lesson_learned (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4()
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   company_id UUID NOT NULL REFERENCES company(id),
   project_id UUID NOT NULL REFERENCES project(id) ON DELETE CASCADE,
   category TEXT NOT NULL CHECK (category IN (
