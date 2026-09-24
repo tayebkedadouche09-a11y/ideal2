@@ -32,7 +32,7 @@ async function storeObject(key: string, buffer: Buffer, mimeType: string): Promi
 }
 
 async function readObject(key: string, companyId: string): Promise<NodeJS.ReadableStream | Buffer> {
-  if (config.storageProvider !== 'supabase') return createReadStream(join(config.storageDir, companyId, key));
+  if (config.storageProvider !== 'supabase') return createReadStream(join(config.storageDir, key));
   if (!config.supabaseUrl || !config.supabaseServiceRoleKey) throw new Error('Supabase Storage is not configured');
   const objectKey = key.includes('/') ? key : `${companyId}/${key}`;
   const url = `${config.supabaseUrl.replace(/\\/$/, '')}/storage/v1/object/authenticated/${encodeURIComponent(config.supabaseStorageBucket)}/${objectKey.split('/').map(encodeURIComponent).join('/')}`;
