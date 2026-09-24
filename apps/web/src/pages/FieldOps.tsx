@@ -25,7 +25,7 @@ export default function FieldOps(){
   async function preview(id:string){try{const blob=await fetchCaptureBlob(id);setMediaUrls(v=>({...v,[id]:URL.createObjectURL(blob)}));}catch(e){setError(e instanceof Error?e.message:'Impossible de lire la capture');}}
   async function upload(file:File,type:string){
     if(!projectId)return;setBusy(true);setError(null);
-    try{await uploadCapture(file,{capture_type:type,project_id:projectId});await loadCaptures();}
+    try{let position:GeolocationPosition|null=null; if(navigator.geolocation) position=await new Promise<GeolocationPosition|null>(resolve=>navigator.geolocation.getCurrentPosition(resolve,()=>resolve(null),{enableHighAccuracy:true,timeout:5000})); await uploadCapture(file,{capture_type:type,project_id:projectId,latitude:position?.coords.latitude,longitude:position?.coords.longitude});await loadCaptures();}
     catch(e){setError(e instanceof Error?e.message:'Erreur');}finally{setBusy(false);}
   }
   async function startVoice(){
