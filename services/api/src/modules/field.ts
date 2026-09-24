@@ -16,7 +16,7 @@ async function event(companyId:string,type:string,entityType:string,entityId:str
 
 export function fieldRoutes(app:FastifyInstance):void {
   app.post('/captures/upload',async(req,reply)=>{
-    requireScope(req,'documents','write'); const auth=requireAuth(req); const parts=req.parts();
+    requireScope(req,'field','write'); const auth=requireAuth(req); const parts=req.parts();
     let buffer:Buffer|null=null,fileName='capture',mime='application/octet-stream',type='document';
     let projectId:string|null=null,title:string|null=null,note:string|null=null,lat:number|null=null,lng:number|null=null;
     for await(const p of parts){
