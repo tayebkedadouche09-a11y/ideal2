@@ -3,7 +3,7 @@
 export interface AuthSession {
   accessToken: string;
   refreshToken: string;
-  user: { id: string; email: string; companyId: string; roles: string[] };
+  user: { id: string; email: string; companyId: string; roles: string[]; scopes?: Record<string,string> };
 }
 
 const BASE = '/api/v1';
