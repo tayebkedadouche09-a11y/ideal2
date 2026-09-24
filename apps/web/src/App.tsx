@@ -20,6 +20,7 @@ import FieldOps from './pages/FieldOps';
 import CompanyMemory from './pages/CompanyMemory';
 import ApprovalCenter from './pages/ApprovalCenter';
 import Chat from './pages/Chat';
+import ConflictCenter from './pages/ConflictCenter';
 import Shell from './components/Shell';
 import { getAuth, setAuth, type AuthSession, fetchDashboard, type DashboardData, api } from './api';
 import { startOutboxAutoSync } from './offline/outbox';
@@ -88,6 +89,7 @@ export default function App() {
           <Route path="/memory" element={<CompanyMemory />} />
           <Route path="/approvals" element={<ApprovalCenter />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/conflicts" element={<ConflictCenter />} />
           <Route path="*" element={<Navigate to={home} replace />} />
         </Routes>
       </Box>
