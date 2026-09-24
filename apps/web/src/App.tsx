@@ -16,6 +16,9 @@ import Notifications from './pages/Notifications';
 import Intelligence from './pages/Intelligence';
 import Audit from './pages/Audit';
 import Portal from './pages/Portal';
+import FieldOps from './pages/FieldOps';
+import CompanyMemory from './pages/CompanyMemory';
+import ApprovalCenter from './pages/ApprovalCenter';
 import Shell from './components/Shell';
 import { getAuth, setAuth, type AuthSession, fetchDashboard, type DashboardData } from './api';
 import { dir, type Locale } from '@company-os/i18n';
@@ -74,6 +77,9 @@ export default function App() {
           <Route path="/intelligence" element={<Intelligence />} />
           <Route path="/audit" element={<Audit />} />
           <Route path="/portal" element={<Portal />} />
+          <Route path="/field" element={<FieldOps />} />
+          <Route path="/memory" element={<CompanyMemory />} />
+          <Route path="/approvals" element={<ApprovalCenter />} />
           <Route path="*" element={<Navigate to={home} replace />} />
         </Routes>
       </Box>
