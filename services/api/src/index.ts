@@ -22,6 +22,7 @@ import { portalRoutes } from './modules/portal.js';
 import { intelligenceRoutes } from './modules/intelligence.js';
 import { automationRoutes } from './modules/automation.js';
 import { chatRoutes } from './modules/chat.js';
+import { engineeringRoutes } from './modules/engineering.js';
 import { fieldRoutes } from './modules/field.js';
 import { HttpError } from './auth/rbac.js';
 import type { Role } from '@company-os/domain';
@@ -71,6 +72,7 @@ portalRoutes(app);
 intelligenceRoutes(app);
 automationRoutes(app);
 chatRoutes(app);
+  engineeringRoutes(app);
 fieldRoutes(app);
 
 app.get('/health', { onRequest: [] }, async () => ({ status: 'ok', time: new Date().toISOString() }));
