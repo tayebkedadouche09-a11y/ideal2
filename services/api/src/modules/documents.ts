@@ -77,11 +77,9 @@ export function documentRoutes(app: FastifyInstance): void {
     }
 
     const sha = createHash('sha256').update(buffer).digest('hex');
+    const key = `${auth.companyId}/${Date.now()}-${sha.slice(0, 12)}${extname(fileName)}`;
+    await storeObject(key, buffer, mimeType);
     const docId = await tx(async (c) => {
-      const dir = join(config.storageDir, auth.companyId);
-      await mkdir(dir, { recursive: true });
-      const key = `${Date.now()}-${sha.slice(0, 12)}${extname(fileName)}`;
-      await writeFile(join(dir, key), buffer);
       const res = await c.query<{ id: string }>(
         `INSERT INTO document (company_id, uploaded_by, file_name, mime_type, size_bytes, storage_key, sha256, status, customer_visible)
          VALUES ($1,$2,$3,$4,$5,$6,$7,'confirmed',$8) RETURNING id`,
