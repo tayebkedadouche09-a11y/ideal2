@@ -18,6 +18,29 @@ const ALLOWED_MIME = new Set([
 ]);
 const MAX_BYTES = 25 * 1024 * 1024;
 
+async function storeObject(key: string, buffer: Buffer, mimeType: string): Promise<void> {
+  if (config.storageProvider !== 'supabase') {
+    const dir = join(config.storageDir);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, key), buffer);
+    return;
+  }
+  if (!config.supabaseUrl || !config.supabaseServiceRoleKey) throw new Error('Supabase Storage is not configured');
+  const url = `${config.supabaseUrl.replace(/\\/$/, '')}/storage/v1/object/${encodeURIComponent(config.supabaseStorageBucket)}/${key.split('/').map(encodeURIComponent).join('/')}`;
+  const res = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${config.supabaseServiceRoleKey}`, apikey: config.supabaseServiceRoleKey, 'Content-Type': mimeType, 'x-upsert': 'false' }, body: buffer });
+  if (!res.ok) throw new Error(`Storage upload failed: ${res.status} ${await res.text()}`);
+}
+
+async function readObject(key: string, companyId: string): Promise<NodeJS.ReadableStream | Buffer> {
+  if (config.storageProvider !== 'supabase') return createReadStream(join(config.storageDir, companyId, key));
+  if (!config.supabaseUrl || !config.supabaseServiceRoleKey) throw new Error('Supabase Storage is not configured');
+  const objectKey = key.includes('/') ? key : `${companyId}/${key}`;
+  const url = `${config.supabaseUrl.replace(/\\/$/, '')}/storage/v1/object/authenticated/${encodeURIComponent(config.supabaseStorageBucket)}/${objectKey.split('/').map(encodeURIComponent).join('/')}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${config.supabaseServiceRoleKey}`, apikey: config.supabaseServiceRoleKey } });
+  if (!res.ok) throw new HttpError(res.status === 404 ? 404 : 502, 'Document storage object unavailable');
+  return Buffer.from(await res.arrayBuffer());
+}
+
 export function documentRoutes(app: FastifyInstance): void {
   app.post('/documents/upload', async (req, reply) => {
     requireScope(req, 'documents', 'write');
@@ -85,7 +108,7 @@ export function documentRoutes(app: FastifyInstance): void {
     await audit(req, 'document_access', 'document', id, { download: true });
     reply.header('content-type', doc.mime_type ?? 'application/octet-stream');
     reply.header('content-disposition', `attachment; filename="${encodeURIComponent(doc.file_name)}"`);
-    return createReadStream(join(config.storageDir, auth.companyId, doc.storage_key));
+    return readObject(doc.storage_key, auth.companyId);
   });
 
   app.get('/documents', async (req) => {
