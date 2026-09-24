@@ -3,7 +3,7 @@
 // Usage:
 //   node scripts/bootstrap.mjs --name "SARL Example" --email owner@example.dz \
 //        [--password 'S3cret!'] [--locale fr] [--full-name 'Direction'] \
-//        [--legal-name ...] [--nif ...] [--nis ...] [--rc ...] [--address ...] [--city ...] [--phone ...]
+//        [--legal-name ...] [--nif ...] [--nis ...] [--rc ...] [--address ...] [--phone ...]
 // If --password is omitted, a strong one is generated and printed once.
 import { randomBytes, scrypt as _scrypt } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -43,10 +43,10 @@ try {
   if (!companyId) {
     companyId = (
       await client.query(
-        `INSERT INTO company (name, legal_name, nif, nis, rc, address, city, phone, email)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+        `INSERT INTO company (name, legal_name, nif, nis, rc, address, phone, email)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
         [name, arg('legal-name') ?? name, arg('nif'), arg('nis'), arg('rc'),
-         arg('address'), arg('city'), arg('phone'), null],
+         arg('address'), arg('phone'), null],
       )
     ).rows[0].id;
   }

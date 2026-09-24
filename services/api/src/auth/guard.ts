@@ -1,8 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import type { Module } from '@company-os/domain';
 import { loadAuthContext } from './context.js';
 
-const PUBLIC_ROUTES = new Set(['POST /auth/login', 'POST /auth/refresh', 'GET /health']);
+const PUBLIC_PATHS = new Set(['/auth/login', '/auth/refresh', '/health']);
 
 /**
  * Authentication guard — spec §38 layer 1. Attaches req.auth from a valid
@@ -11,8 +10,17 @@ const PUBLIC_ROUTES = new Set(['POST /auth/login', 'POST /auth/refresh', 'GET /h
  */
 export function authGuard(app: FastifyInstance): void {
   app.addHook('onRequest', async (req: FastifyRequest) => {
-    const route = `${req.method} ${req.routeOptions?.url ?? ''}`;
-    if (PUBLIC_ROUTES.has(route)) return;
+    // Prefer registered route path; fall back to request URL (inject / proxies).
+    const raw = (req.routeOptions?.url ?? req.url ?? '').split('?')[0] ?? '';
+    const path = raw.replace(/\/+$/, '') || '/';
+    if (
+      PUBLIC_PATHS.has(path) ||
+      path.endsWith('/auth/login') ||
+      path.endsWith('/auth/refresh') ||
+      path.endsWith('/health')
+    ) {
+      return;
+    }
 
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer ')) {
@@ -26,7 +34,8 @@ export function authGuard(app: FastifyInstance): void {
       const auth = await loadAuthContext(payload.sub);
       if (!auth) throw new Error('no roles');
       (req as FastifyRequest & { auth?: unknown }).auth = auth;
-    } catch {
+    } catch (e) {
+      if ((e as { statusCode?: number }).statusCode === 401) throw e;
       const err = new Error('Invalid or expired token') as Error & { statusCode: number };
       err.statusCode = 401;
       throw err;
