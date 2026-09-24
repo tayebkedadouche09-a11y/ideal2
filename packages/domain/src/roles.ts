@@ -53,6 +53,7 @@ export const MODULES = [
   'settings',
   'audit',
   'customer_portal',
+  'field',
 ] as const;
 
 export type Module = (typeof MODULES)[number];
@@ -69,49 +70,49 @@ export const PERMISSION_MATRIX: Record<Role, Record<Module, PermissionScope>> = 
     projects: 'read', planning: 'none', stock: 'read', purchasing: 'read', employees: 'read',
     teams: 'none', vehicles: 'read', equipment: 'read', finance: 'write', documents: 'read',
     communications: 'none', ai: 'read', reports: 'read', settings: 'none', audit: 'read',
-    customer_portal: 'none',
+    customer_portal: 'none', field: 'read',
   },
   engineer: {
     dashboard: 'read', clients: 'read', suppliers: 'none', contracts: 'read', quotes: 'read',
     projects: 'write', planning: 'write', stock: 'read', purchasing: 'read', employees: 'read',
     teams: 'write', vehicles: 'read', equipment: 'read', finance: 'none', documents: 'write',
     communications: 'write', ai: 'read', reports: 'read', settings: 'none', audit: 'none',
-    customer_portal: 'none',
+    customer_portal: 'none', field: 'write',
   },
   team_leader: {
     dashboard: 'read', clients: 'none', suppliers: 'none', contracts: 'none', quotes: 'none',
     projects: 'read', planning: 'write', stock: 'read', purchasing: 'none', employees: 'read',
     teams: 'write', vehicles: 'read', equipment: 'read', finance: 'none', documents: 'write',
     communications: 'read', ai: 'read', reports: 'none', settings: 'none', audit: 'none',
-    customer_portal: 'none',
+    customer_portal: 'none', field: 'write',
   },
   worker: {
     dashboard: 'none', clients: 'none', suppliers: 'none', contracts: 'none', quotes: 'none',
     projects: 'read', planning: 'read', stock: 'none', purchasing: 'none', employees: 'none',
     teams: 'read', vehicles: 'none', equipment: 'none', finance: 'none', documents: 'none',
     communications: 'none', ai: 'read', reports: 'none', settings: 'none', audit: 'none',
-    customer_portal: 'none',
+    customer_portal: 'none', field: 'write',
   },
   storekeeper: {
     dashboard: 'read', clients: 'none', suppliers: 'read', contracts: 'none', quotes: 'none',
     projects: 'read', planning: 'none', stock: 'write', purchasing: 'write', employees: 'none',
     teams: 'none', vehicles: 'none', equipment: 'none', finance: 'none', documents: 'write',
     communications: 'none', ai: 'read', reports: 'none', settings: 'none', audit: 'none',
-    customer_portal: 'none',
+    customer_portal: 'none', field: 'write',
   },
   driver: {
     dashboard: 'none', clients: 'none', suppliers: 'none', contracts: 'none', quotes: 'none',
     projects: 'read', planning: 'read', stock: 'none', purchasing: 'none', employees: 'none',
     teams: 'none', vehicles: 'write', equipment: 'none', finance: 'none', documents: 'none',
     communications: 'none', ai: 'read', reports: 'none', settings: 'none', audit: 'none',
-    customer_portal: 'none',
+    customer_portal: 'none', field: 'write',
   },
   customer: {
     dashboard: 'none', clients: 'none', suppliers: 'none', contracts: 'read', quotes: 'read',
     projects: 'read', planning: 'none', stock: 'none', purchasing: 'none', employees: 'none',
     teams: 'none', vehicles: 'none', equipment: 'none', finance: 'read', documents: 'read',
     communications: 'read', ai: 'none', reports: 'none', settings: 'none', audit: 'none',
-    customer_portal: 'read',
+    customer_portal: 'read', field: 'none',
   },
 };
 
