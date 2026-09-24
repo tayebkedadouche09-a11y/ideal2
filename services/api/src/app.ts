@@ -25,7 +25,7 @@ import { chatRoutes } from './modules/chat.js';
 import { engineeringRoutes } from './modules/engineering.js';
 import { fieldRoutes } from './modules/field.js';
 import { HttpError } from './auth/rbac.js';
-export function createApp() {
+export async function createApp() {
 const app = Fastify({
   logger: true,
   requestIdHeader: 'x-request-id',
