@@ -3,7 +3,7 @@ import { Alert, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogCo
 import { fetchApprovals, decideApproval, createApproval, getAuth, type ApprovalRequest } from '../api';
 
 export default function ApprovalCenter(){
- const role=getAuth()?.user.roles[0]??'worker'; const canCreate=role==='owner'||role==='storekeeper';
+ const auth=getAuth(); const role=auth?.user.roles[0]??'worker'; const scopes=auth?.user.scopes??{}; const canCreate=scopes.purchasing==='write'||scopes.purchasing==='approve'; const canDecide=scopes.purchasing==='approve';
  const [rows,setRows]=useState<ApprovalRequest[]>([]);const [error,setError]=useState<string|null>(null);const [open,setOpen]=useState(false);
  const [form,setForm]=useState({action:'',reason:'',risk:'medium',amount:''});
  const load=useCallback(async()=>{try{setRows((await fetchApprovals()).approvals);}catch(e){setError(e instanceof Error?e.message:'Erreur');}},[]);
@@ -18,7 +18,7 @@ export default function ApprovalCenter(){
    <Typography>{r.reason}</Typography>
    {r.amount!=null&&<Typography color="text.secondary">Montant: {Number(r.amount).toLocaleString('fr-DZ')} DA</Typography>}
    <Typography variant="caption" color="text.secondary">Demandé par {r.requested_by_name??'—'} • {new Date(r.created_at).toLocaleString()}</Typography>
-   {r.status==='pending'&&<Stack direction="row" spacing={1} sx={{mt:1}}><Button color="success" variant="contained" size="small" onClick={()=>void decide(r.id,'approved')}>Approuver</Button><Button color="error" variant="outlined" size="small" onClick={()=>void decide(r.id,'rejected')}>Refuser</Button></Stack>}
+   {r.status==='pending'&&canDecide&&<Stack direction="row" spacing={1} sx={{mt:1}}><Button color="success" variant="contained" size="small" onClick={()=>void decide(r.id,'approved')}>Approuver</Button><Button color="error" variant="outlined" size="small" onClick={()=>void decide(r.id,'rejected')}>Refuser</Button></Stack>}
   </CardContent></Card>)}
   {rows.length===0&&<Typography color="text.secondary">Aucune demande.</Typography>}
   <Dialog open={open} onClose={()=>setOpen(false)} fullWidth maxWidth="sm"><DialogTitle>Nouvelle demande d’approbation</DialogTitle><DialogContent>
