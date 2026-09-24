@@ -1,0 +1,27 @@
+{
+  "name": "company-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Industrial Contractor Company Operating System — ERP + Operations + Automation + AI",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "tsc -b packages/domain packages/i18n",
+    "typecheck": "tsc -b packages/domain packages/i18n",
+    "typecheck:api": "tsc -b services/api",
+    "typecheck:web": "tsc --noEmit -p apps/web",
+    "test": "npm run test -w @company-os/domain && npm run test -w @company-os/i18n",
+    "dev:api": "npm run dev -w @company-os/api",
+    "dev:web": "npm run dev -w @company-os/web",
+    "db:up": "docker compose up -d postgres redis",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:bootstrap": "node scripts/bootstrap.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  }
+}
