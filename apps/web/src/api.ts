@@ -6,7 +6,7 @@ export interface AuthSession {
   user: { id: string; email: string; companyId: string; roles: string[]; scopes?: Record<string,string> };
 }
 
-const BASE = '/api/v1';
+const BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '/api/v1';
 
 export function getAuth(): AuthSession | null {
   try {
