@@ -21,14 +21,21 @@ export default function Project360() {
   const [dlg, setDlg] = useState<null | 'measurement' | 'task' | 'report' | 'consumption'>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [materials, setMaterials] = useState<{ value: string; label: string }[]>([]);
+  const [workspace, setWorkspace] = useState<{ captures: Row[]; zones: Row[]; boq: Row[]; lessons: Row[] }>({ captures: [], zones: [], boq: [], lessons: [] });
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [d, p, t] = await Promise.all([fetchProject(id), fetchProfitability(id), fetchTimeline(id)]);
+      const [d, p, t, captures, engineering, lessons] = await Promise.all([
+        fetchProject(id), fetchProfitability(id), fetchTimeline(id),
+        api<{ captures: Row[] }>(`/projects/${id}/captures`),
+        api<{ zones: Row[]; boq: Row[] }>(`/projects/${id}/zones`),
+        api<{ lessons: Row[] }>(`/projects/${id}/lessons`),
+      ]);
       setData(d);
       setProfit(p.profitability);
       setTimeline(t);
+      setWorkspace({ captures: captures.captures, zones: engineering.zones, boq: engineering.boq, lessons: lessons.lessons });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur');
     }
@@ -116,7 +123,7 @@ export default function Project360() {
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
         <Tab label="Mesures" /><Tab label="Matériaux" /><Tab label="Équipe" /><Tab label="Tâches" />
-        <Tab label="Rapports" /><Tab label="Incidents" /><Tab label="Documents" /><Tab label="Chronologie" />
+        <Tab label="Rapports" /><Tab label="Incidents" /><Tab label="Documents" /><Tab label="Chronologie" /><Tab label="Workspace" />
       </Tabs>
 
       {tab === 0 && (
@@ -239,6 +246,27 @@ export default function Project360() {
             </TableBody>
           </Table>
         </TableContainer>
+      )}
+
+      {tab === 8 && (
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}><Card><CardContent>
+            <Typography variant="h6">Captures terrain</Typography>
+            {workspace.captures.length ? workspace.captures.map((x,i)=><Typography key={i}>• {String(x.title ?? x.capture_type)} — {String(x.created_at)}</Typography>) : <Typography color="text.secondary">Aucune capture.</Typography>}
+          </CardContent></Card></Grid>
+          <Grid item xs={12} md={6}><Card><CardContent>
+            <Typography variant="h6">Zones chantier</Typography>
+            {workspace.zones.length ? workspace.zones.map((x,i)=><Typography key={i}>• {String(x.name)} — {String(x.status)} — {String(x.area_sqm ?? '—')} m²</Typography>) : <Typography color="text.secondary">Aucune zone.</Typography>}
+          </CardContent></Card></Grid>
+          <Grid item xs={12} md={6}><Card><CardContent>
+            <Typography variant="h6">BOQ / Métré chiffré</Typography>
+            {workspace.boq.length ? workspace.boq.map((x,i)=><Typography key={i}>• {String(x.description)} — {String(x.quantity)} {String(x.unit ?? '')} × {String(x.unit_price)}</Typography>) : <Typography color="text.secondary">Aucune ligne BOQ.</Typography>}
+          </CardContent></Card></Grid>
+          <Grid item xs={12} md={6}><Card><CardContent>
+            <Typography variant="h6">Mémoire du projet</Typography>
+            {workspace.lessons.length ? workspace.lessons.map((x,i)=><Typography key={i}>• {String(x.category)} — {String(x.note)}</Typography>) : <Typography color="text.secondary">Aucune leçon enregistrée.</Typography>}
+          </CardContent></Card></Grid>
+        </Grid>
       )}
 
       {tab === 7 && timeline ? (
