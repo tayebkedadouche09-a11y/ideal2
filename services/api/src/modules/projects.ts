@@ -306,7 +306,7 @@ export function projectRoutes(app: FastifyInstance): void {
       entity_id: res.rows[0]!.id,
       project_id: id,
       title: `Incident: ${b.title}`,
-      body: b.description ?? null,
+      body: b.description ?? undefined,
     });
     return reply.code(201).send({ id: res.rows[0]!.id });
   });
