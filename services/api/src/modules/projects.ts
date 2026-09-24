@@ -199,21 +199,24 @@ export function projectRoutes(app: FastifyInstance): void {
     return reply.code(201).send(result);
   });
 
-  // Lessons learned are stored in the Company Memory table as knowledge items.
-  // Project 360 exposes only project-scoped lessons and keeps tenant/RBAC isolation.
+  // Project 360 keeps the legacy Lessons Learned records and the newer Company Memory lessons
+  // in one read model so no historical knowledge disappears from the workspace.
   app.get('/projects/:id/lessons', async (req) => {
     requireScope(req, 'projects', 'read');
     const auth = requireAuth(req);
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
     const res = await pool.query(
-      `SELECT k.*, u.full_name AS created_by_name
+      `SELECT id, project_id, category AS kind, note AS content, created_by, created_at,
+              'lesson_learned' AS source, NULL::text AS title
+         FROM lesson_learned
+        WHERE company_id = $1 AND project_id = $2
+        UNION ALL
+       SELECT k.id, k.project_id, k.kind, k.content, k.created_by, k.created_at,
+              'knowledge_item' AS source, k.title
          FROM knowledge_item k
-         LEFT JOIN "user" u ON u.id = k.created_by
-        WHERE k.company_id = $1
-          AND k.project_id = $2
-          AND k.kind = 'lesson'
-        ORDER BY k.created_at DESC
+        WHERE k.company_id = $1 AND k.project_id = $2 AND k.kind = 'lesson'
+        ORDER BY created_at DESC
         LIMIT 200`,
       [auth.companyId, id],
     );
