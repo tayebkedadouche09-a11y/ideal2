@@ -21,4 +21,5 @@ export const config = {
   supabaseStorageBucket: process.env.SUPABASE_STORAGE_BUCKET ?? 'company-documents',
   // Derived systems are rebuildable; business truth stays in PostgreSQL.
   llmProvider: process.env.LLM_PROVIDER ?? 'none',
+  webOrigin: req('WEB_ORIGIN', 'http://localhost:5173'),
 } as const;
