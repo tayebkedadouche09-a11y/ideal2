@@ -25,6 +25,14 @@ import { chatRoutes } from './modules/chat.js';
 import { engineeringRoutes } from './modules/engineering.js';
 import { fieldRoutes } from './modules/field.js';
 import { HttpError } from './auth/rbac.js';
+// app.config declaration merged via module augmentation
+declare module 'fastify' {
+  interface FastifyInstance {
+    config: typeof config;
+    jwtVerify<T extends object = object>(options?: object): Promise<T & { sub: string; typ: string }>;
+  }
+}
+
 export async function createApp() {
 const app = Fastify({
   logger: true,
@@ -41,14 +49,6 @@ await app.register(rateLimit, {
   max: 300,
   timeWindow: '1 minute',
 });
-
-// app.config declaration merged via module augmentation
-declare module 'fastify' {
-  interface FastifyInstance {
-    config: typeof config;
-    jwtVerify<T extends object = object>(options?: object): Promise<T & { sub: string; typ: string }>;
-  }
-}
 
 app.decorate('config', config);
 
