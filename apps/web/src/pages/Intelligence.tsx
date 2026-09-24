@@ -3,7 +3,7 @@ import {
   Alert, Button, Card, CardContent, Grid, MenuItem, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, Typography, Paper,
 } from '@mui/material';
-import { fetchComparison, fetchAnomalies, fetchForecasts, runScenario, type Comparison } from '../api';
+import { fetchComparison, fetchAnomalies, fetchForecasts, fetchCompanyBrain, runScenario, type Comparison, type CompanyBrain } from '../api';
 import { translate, type Locale } from '@company-os/i18n';
 
 type Row = Record<string, unknown>;
@@ -18,13 +18,16 @@ export default function Intelligence() {
   const [scenarioType, setScenarioType] = useState('material_price_increase');
   const [percent, setPercent] = useState('10');
   const [result, setResult] = useState<Row | null>(null);
+  const [brain, setBrain] = useState<CompanyBrain | null>(null);
+  const [brainQuery, setBrainQuery] = useState('');
 
   const load = useCallback(async () => {
     try {
-      const [c, a, f] = await Promise.all([fetchComparison(), fetchAnomalies(), fetchForecasts()]);
+      const [c, a, f, b] = await Promise.all([fetchComparison(), fetchAnomalies(), fetchForecasts(), fetchCompanyBrain()]);
       setComparison(c);
       setAnomalies(a.anomalies);
       setForecasts(f.forecasts);
+      setBrain(b);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur');
     }
@@ -122,6 +125,26 @@ export default function Intelligence() {
                     </Typography>
                   ))
                 )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="subtitle1">Company Brain</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Mémoire d’entreprise + leçons + incidents, avec preuves traçables.
+                </Typography>
+                <TextField fullWidth size="small" label="Question / recherche" value={brainQuery} onChange={(e) => setBrainQuery(e.target.value)} sx={{ mb: 1 }} />
+                <Button variant="outlined" onClick={async () => { try { setBrain(await fetchCompanyBrain(brainQuery)); } catch (e) { setError(e instanceof Error ? e.message : 'Erreur'); } }}>
+                  Rechercher dans le cerveau
+                </Button>
+                {(brain?.recommendations ?? []).map((x, i) => <Typography key={i} variant="body2" sx={{ mt: 1 }}>• {x}</Typography>)}
+                {(brain?.recurring ?? []).length > 0 && <Typography variant="body2" sx={{ mt: 1 }}><b>Récurrences:</b> {brain?.recurring.map((x) => `${x.category} (${x.count})`).join(' · ')}</Typography>}
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                  {brain?.evidence.length ?? 0} éléments de preuve trouvés · mode {brain?.mode ?? '—'}
+                </Typography>
               </CardContent>
             </Card>
           </Grid>
