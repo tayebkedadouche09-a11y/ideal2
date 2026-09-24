@@ -200,6 +200,41 @@ export function intelligenceRoutes(app: FastifyInstance): void {
     return { lessons: res.rows };
   });
 
+  // Company Brain — evidence retrieval + deterministic recommendations.
+  // This is intentionally provider-free: it turns company history into traceable evidence
+  // and rules-based suggestions; an LLM can be layered later without changing the data contract.
+  app.get('/intelligence/company-brain', async (req) => {
+    requireScope(req, 'ai', 'read');
+    const auth = requireAuth(req);
+    const q = req.query as { q?: string; project_id?: string };
+    const query = q.q?.trim() ?? '';
+    const params: unknown[] = [auth.companyId];
+    const projectFilter = q.project_id ? ` AND project_id = ${params.push(q.project_id)}` : '';
+    const limit = 40;
+    const search = query ? ` AND to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(content,'')) @@ plainto_tsquery('simple',${params.push(query)})` : '';
+    const memory = await pool.query(`SELECT id,title,content,kind,project_id,confidence,created_at,'knowledge' AS source
+      FROM knowledge_item WHERE company_id=$1${projectFilter}${search} ORDER BY created_at DESC LIMIT ${limit}`, params);
+    const lessonParams: unknown[] = [auth.companyId];
+    const lessonProject = q.project_id ? ` AND project_id = ${lessonParams.push(q.project_id)}` : '';
+    const lessonSearch = query ? ` AND to_tsvector('simple', coalesce(category,'') || ' ' || coalesce(note,'')) @@ plainto_tsquery('simple',${lessonParams.push(query)})` : '';
+    const lessons = await pool.query(`SELECT l.id,l.category AS kind,l.note AS content,l.project_id,l.created_at,'lesson' AS source,p.code AS project_code,p.name AS project_name
+      FROM lesson_learned l LEFT JOIN project p ON p.id=l.project_id WHERE l.company_id=$1${lessonProject}${lessonSearch} ORDER BY l.created_at DESC LIMIT ${limit}`, lessonParams);
+    const incidentParams: unknown[] = [auth.companyId];
+    const incidentProject = q.project_id ? ` AND project_id = ${incidentParams.push(q.project_id)}` : '';
+    const incidentSearch = query ? ` AND to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(description,'')) @@ plainto_tsquery('simple',${incidentParams.push(query)})` : '';
+    const incidents = await pool.query(`SELECT id,title,description,project_id,severity,status,reported_at AS created_at,'incident' AS source
+      FROM incident WHERE company_id=$1${incidentProject}${incidentSearch} ORDER BY reported_at DESC LIMIT ${limit}`, incidentParams);
+    const evidence = [...memory.rows,...lessons.rows,...incidents.rows].sort((a,b)=>new Date(String(b.created_at)).getTime()-new Date(String(a.created_at)).getTime()).slice(0,60);
+    const categoryCounts = new Map<string,number>();
+    for(const row of [...lessons.rows,...incidents.rows]){const key=String(row.kind??row.severity??'general');categoryCounts.set(key,(categoryCounts.get(key)??0)+1);}
+    const recurring = [...categoryCounts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5).map(([category,count])=>({category,count}));
+    const recommendations:string[]=[];
+    if(recurring.some(x=>['material_variance','unexpected_cost'].includes(x.category))) recommendations.push('Review material consumption variance and update BOQ waste factors before the next quote.');
+    if(recurring.some(x=>['supplier','quality'].includes(x.category))) recommendations.push('Compare supplier and quality lessons before approving the next material purchase.');
+    if(recurring.some(x=>['critical','high'].includes(x.category))) recommendations.push('Review repeated high-severity incidents and attach a corrective procedure to Company Memory.');
+    if(!evidence.length) recommendations.push('Capture the first lessons, procedures and incident outcomes to build the company knowledge base.');
+    return { query, generatedAt:new Date().toISOString(), evidence, recurring, recommendations, mode:'deterministic-evidence' };
+  });
   // Audit trail access (spec §41) — audit module scope
   app.get('/audit', async (req) => {
     requireScope(req, 'audit', 'read');
