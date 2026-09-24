@@ -7,6 +7,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import type { AuthSession, Notification } from '../api';
 import { setAuth, fetchNotifications } from '../api';
+import OutboxStatus from './OutboxStatus';
 import { translate, LOCALES, type Locale } from '@company-os/i18n';
 
 const DRAWER_WIDTH = 250;
@@ -34,6 +35,7 @@ const NAV: NavItem[] = [
   { key: 'memory', label: 'Company Memory', visibleTo: ['owner', 'accountant', 'engineer', 'team_leader'], path: '/memory' },
   { key: 'approvals', label: 'Approval Center', visibleTo: ['owner', 'accountant'], path: '/approvals' },
   { key: 'chat', label: 'Company Chat', visibleTo: ['owner', 'engineer', 'team_leader', 'worker'], path: '/chat' },
+  { key: 'conflicts', label: 'Conflits offline', visibleTo: ['owner', 'engineer', 'team_leader', 'storekeeper'], path: '/conflicts' },
   { key: 'audit', label: 'nav.audit', visibleTo: ['owner', 'accountant'], path: '/audit' },
   { key: 'portal', label: 'nav.dashboard', visibleTo: ['customer'], path: '/portal' },
 ];
@@ -68,6 +70,7 @@ export default function Shell({ session, onLocale }: Props) {
           <Typography variant="h6" noWrap sx={{ flexGrow: 1 }}>
             {translate(locale, 'app.name')}
           </Typography>
+          {role !== 'customer' && <OutboxStatus />}
           {role !== 'customer' && (
             <IconButton color="inherit" onClick={(e) => setAnchor(e.currentTarget)} size="large">
               <Badge badgeContent={notifs.length} color="error">
