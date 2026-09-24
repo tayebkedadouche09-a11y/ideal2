@@ -48,7 +48,8 @@ export async function emitAutomationEvent(req: FastifyRequest, ctx: TriggerConte
     let executed = 0;
     for (const rule of rules.rows) {
       const def: RuleDefinition = { trigger_type: ctx.trigger_type, conditions: rule.conditions ?? {} };
-      const ruleCtx: RuleTriggerContext = { trigger_type: ctx.trigger_type, ...ctx };
+      const { trigger_type: _triggerType, ...ctxWithoutTriggerType } = ctx;
+      const ruleCtx: RuleTriggerContext = { trigger_type: ctx.trigger_type, ...ctxWithoutTriggerType };
       const matched = ruleMatches(def, ruleCtx);
       let status: string = matched ? 'success' : 'no_match';
       let output: Record<string, unknown> | null = null;
@@ -84,7 +85,7 @@ async function notificationExists(companyId: string, entityType: string | null, 
        AND title = $4 AND created_at > now() - interval '60 minutes'`,
     [companyId, entityType, entityId, title],
   );
-  return dup.rowCount > 0;
+  return dup.rowCount !== null && dup.rowCount > 0;
 }
 
 async function executeAction(
