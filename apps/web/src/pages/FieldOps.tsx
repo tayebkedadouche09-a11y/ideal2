@@ -4,7 +4,7 @@ import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { list, uploadCapture, fetchProjectCaptures, fetchCaptureBlob, type CaptureItem } from '../api';
+import { api, list, uploadCapture, fetchProjectCaptures, fetchCaptureBlob, type CaptureItem } from '../api';
 
 type Row=Record<string,unknown>;
 
@@ -15,18 +15,39 @@ export default function FieldOps(){
   const [recording,setRecording]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
+  const [online,setOnline]=useState(navigator.onLine);
+  const [emergencyNote,setEmergencyNote]=useState('');
+  const [queued,setQueued]=useState(0);
   const recorder=useRef<MediaRecorder|null>(null);
   const chunks=useRef<Blob[]>([]);
 
   const loadProjects=useCallback(async()=>{try{const r=await list<Row>('/projects');setProjects((Object.values(r).find(v=>Array.isArray(v)) as Row[])??[]);}catch(e){setError(e instanceof Error?e.message:'Erreur');}},[]);
   const loadCaptures=useCallback(async()=>{if(!projectId){setCaptures([]);return;}try{const d=await fetchProjectCaptures(projectId);setCaptures(d.captures);}catch(e){setError(e instanceof Error?e.message:'Erreur');}},[projectId]);
   useEffect(()=>{void loadProjects();},[loadProjects]); useEffect(()=>{void loadCaptures();},[loadCaptures]);
+  useEffect(()=>{setQueued(JSON.parse(localStorage.getItem('cos.field.queue')||'[]').length);const on=()=>setOnline(true),off=()=>setOnline(false);window.addEventListener('online',on);window.addEventListener('offline',off);return()=>{window.removeEventListener('online',on);window.removeEventListener('offline',off);};},[]);
 
   async function preview(id:string){try{const blob=await fetchCaptureBlob(id);setMediaUrls(v=>({...v,[id]:URL.createObjectURL(blob)}));}catch(e){setError(e instanceof Error?e.message:'Impossible de lire la capture');}}
   async function upload(file:File,type:string){
     if(!projectId)return;setBusy(true);setError(null);
     try{let position:GeolocationPosition|null=null; if(navigator.geolocation) position=await new Promise<GeolocationPosition|null>(resolve=>navigator.geolocation.getCurrentPosition(resolve,()=>resolve(null),{enableHighAccuracy:true,timeout:5000})); await uploadCapture(file,{capture_type:type,project_id:projectId,latitude:position?.coords.latitude,longitude:position?.coords.longitude});await loadCaptures();}
     catch(e){setError(e instanceof Error?e.message:'Erreur');}finally{setBusy(false);}
+  }
+  async function syncEmergencyQueue(){
+    if(!navigator.onLine)return;
+    const q=JSON.parse(localStorage.getItem('cos.field.queue')||'[]') as {projectId:string;title:string;description:string;severity:string;latitude?:number;longitude?:number}[];
+    if(!q.length)return;
+    const rest=q.slice();
+    for(let i=rest.length-1;i>=0;i--){try{await api(`/projects/${rest[i].projectId}/incidents`,{method:'POST',body:JSON.stringify(rest[i])});rest.splice(i,1);}catch{ /* keep queued */ }}
+    localStorage.setItem('cos.field.queue',JSON.stringify(rest));setQueued(rest.length);
+  }
+  useEffect(()=>{if(online)void syncEmergencyQueue();},[online]);
+  async function createEmergency(){
+    if(!projectId||!emergencyNote.trim())return;
+    let pos:GeolocationPosition|null=null;if(navigator.geolocation)pos=await new Promise<GeolocationPosition|null>(r=>navigator.geolocation.getCurrentPosition(r,()=>r(null),{enableHighAccuracy:true,timeout:4000}));
+    const item={projectId,title:'Emergency field report',description:emergencyNote.trim(),severity:'critical',latitude:pos?.coords.latitude,longitude:pos?.coords.longitude};
+    if(!navigator.onLine){const q=JSON.parse(localStorage.getItem('cos.field.queue')||'[]');q.push(item);localStorage.setItem('cos.field.queue',JSON.stringify(q));setQueued(q.length);setEmergencyNote('');return;}
+    try{await api(`/projects/${projectId}/incidents`,{method:'POST',body:JSON.stringify(item)});setEmergencyNote('');}
+    catch{const q=JSON.parse(localStorage.getItem('cos.field.queue')||'[]');q.push(item);localStorage.setItem('cos.field.queue',JSON.stringify(q));setQueued(q.length);}
   }
   async function startVoice(){
     if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){setError('Voice-to-Work n’est pas supporté par ce navigateur.');return;}
@@ -44,6 +65,8 @@ export default function FieldOps(){
   return <Card><CardContent>
     <Typography variant="h6" gutterBottom>Field Operations — Universal Capture</Typography>
     <Typography color="text.secondary" sx={{mb:2}}>Photo • Voice-to-Work • documents • captures terrain liées au chantier.</Typography>
+    <Stack direction={{xs:'column',md:'row'}} spacing={1} sx={{mb:2}}><Chip color={online?'success':'warning'} label={online?'Online':'Offline'} /><Chip label={`Emergency queue: ${queued}`} /></Stack>
+    <Card variant="outlined" sx={{mb:2}}><CardContent><Typography variant="subtitle1">Emergency Mode</Typography><TextField fullWidth multiline minRows={2} label="Incident / urgence" value={emergencyNote} onChange={e=>setEmergencyNote(e.target.value)} sx={{my:1}}/><Button color="error" variant="contained" disabled={!projectId||!emergencyNote.trim()} onClick={()=>void createEmergency()}>Enregistrer l'urgence</Button></CardContent></Card>
     {error&&<Alert severity="error" sx={{mb:2}}>{error}</Alert>}
     <TextField select label="Chantier" fullWidth value={projectId} onChange={e=>setProjectId(e.target.value)} sx={{mb:2}}>
       {projects.map(p=><MenuItem key={String(p.id)} value={String(p.id)}>{String(p.code)} — {String(p.name)}</MenuItem>)}
