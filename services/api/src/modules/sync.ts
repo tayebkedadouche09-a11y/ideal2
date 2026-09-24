@@ -199,23 +199,32 @@ async function applyResolvedPayload(
   payload: Record<string, unknown>,
 ): Promise<void> {
   const configs: Record<string, { table: string; columns: string[]; companyWhere: string }> = {
-    project_task: { table: 'project_task', columns: ['title','description','status','planned_start','planned_end','assignee_employee_id'], companyWhere: 'project_id IN (SELECT id FROM project WHERE company_id = $2)' },
-    daily_report: { table: 'daily_report', columns: ['report_date','work_performed','manpower_count','problems'], companyWhere: 'company_id = $2' },
-    incident: { table: 'incident', columns: ['severity','status','title','description','resolved_at'], companyWhere: 'company_id = $2' },
-    capture_item: { table: 'capture_item', columns: ['title','note','latitude','longitude','captured_via','metadata','processing_status'], companyWhere: 'company_id = $2' },
+    project_task: { table: 'project_task', columns: ['title','description','status','planned_start','planned_end','assignee_employee_id'], companyWhere: 'project_id IN (SELECT id FROM project WHERE company_id = COMPANY_PARAM)' },
+    daily_report: { table: 'daily_report', columns: ['report_date','work_performed','manpower_count','problems'], companyWhere: 'company_id = COMPANY_PARAM' },
+    incident: { table: 'incident', columns: ['severity','status','title','description','resolved_at'], companyWhere: 'company_id = COMPANY_PARAM' },
+    capture_item: { table: 'capture_item', columns: ['title','note','latitude','longitude','captured_via','metadata','processing_status'], companyWhere: 'company_id = COMPANY_PARAM' },
   };
   const cfg = configs[entityType];
-  if (!cfg) throw new HttpError(400, `Conflict resolution is not supported for ${entityType}`);
+  if (!cfg) throw new HttpError(400, 'Conflict resolution is not supported for ' + entityType);
   const entries = Object.entries(payload).filter(([key]) => cfg.columns.includes(key));
   if (entries.length === 0) throw new HttpError(400, 'No resolvable fields in client payload');
+
   const sets: string[] = [];
   const values: unknown[] = [];
   let i = 1;
-  for (const [key, value] of entries) { sets.push(`${key} = ${i++}`); values.push(value); }
+  for (const [key, value] of entries) {
+    sets.push(key + ' = $' + i++);
+    values.push(value);
+  }
+  const entityParam = i++;
+  const companyParam = i++;
   sets.push('row_version = row_version + 1');
   values.push(entityId, companyId);
+
+  const where = cfg.companyWhere.replace('COMPANY_PARAM', '$' + companyParam);
   const res = await c.query(
-    `UPDATE ${cfg.table} SET ${sets.join(', ')} WHERE id = ${i} AND ${cfg.companyWhere}`,
+    'UPDATE ' + cfg.table + ' SET ' + sets.join(', ') +
+    ' WHERE id = $' + entityParam + ' AND ' + where,
     values,
   );
   if (res.rowCount === 0) throw new HttpError(404, 'Conflict entity not found in company');
