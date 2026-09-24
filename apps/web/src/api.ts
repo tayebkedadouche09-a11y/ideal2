@@ -155,6 +155,8 @@ export const fetchComparison = () => api<Comparison>('/intelligence/project-comp
 export const fetchAnomalies = () => api<{ anomalies: Record<string, unknown>[] }>('/intelligence/anomalies');
 export const fetchForecasts = () => api<{ forecasts: Record<string, unknown>[] }>('/intelligence/forecast');
 export const runScenario = (body: unknown) => api<Record<string, unknown>>('/intelligence/scenarios', { method: 'POST', body: JSON.stringify(body) });
+export interface CompanyBrain { query:string; generatedAt:string; mode:string; evidence: Record<string,unknown>[]; recurring:{category:string;count:number}[]; recommendations:string[] }
+export const fetchCompanyBrain = (q='') => api<CompanyBrain>(`/intelligence/company-brain${q?`?q=${encodeURIComponent(q)}`:''}`);
 export const fetchAudit = (qs = '') => api<{ entries: Record<string, unknown>[] }>(`/audit${qs}`);
 
 // ---- Portal ----
