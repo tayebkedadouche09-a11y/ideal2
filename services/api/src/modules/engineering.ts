@@ -15,7 +15,7 @@ export function engineeringRoutes(app: FastifyInstance): void {
       [auth.companyId, id],
     );
     const boq = await pool.query(
-      'SELECT b.*, m.name AS material_name FROM zone_boq_line b LEFT JOIN material m ON m.id=b.material_id JOIN project_zone z ON z.id=b.zone_id WHERE z.company_id=$1 AND z.project_id=$2 ORDER BY b.position,b.created_at',
+      'SELECT b.*, m.name AS material_name FROM zone_boq_line b LEFT JOIN material m ON m.id=b.material_id JOIN project_zone z ON z.id=b.zone_id WHERE z.company_id=$1 AND z.project_id=$2 AND b.company_id=$1 ORDER BY b.position,b.created_at',
       [auth.companyId, id],
     );
     return { zones: zones.rows, boq: boq.rows };
@@ -85,7 +85,7 @@ export function engineeringRoutes(app: FastifyInstance): void {
     const z=await pool.query<{project_id:string}>('SELECT project_id FROM project_zone WHERE id=$1 AND company_id=$2',[zoneId,auth.companyId]);
     if(!z.rowCount) throw new HttpError(404,'Zone not found');
     assertProjectAccess(req,z.rows[0]!.project_id);
-    const r=await pool.query('DELETE FROM zone_boq_line WHERE id=$1 AND zone_id=$2 RETURNING id',[lineId,zoneId]);
+    const r=await pool.query('DELETE FROM zone_boq_line WHERE id=$1 AND zone_id=$2 AND company_id=$3 RETURNING id',[lineId,zoneId,auth.companyId]);
     if(!r.rowCount) throw new HttpError(404,'BOQ line not found');
     await audit(req,'delete','zone_boq_line',lineId,{zone_id:zoneId});
     return {ok:true};
