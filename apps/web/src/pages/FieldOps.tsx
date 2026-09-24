@@ -19,13 +19,28 @@ export default function FieldOps(){
   const [emergencyNote,setEmergencyNote]=useState('');
   const [queued,setQueued]=useState(0);
   const queueKey='cos.field.emergency.v2';
+  const legacyQueueKey='cos.field.queue';
+  type EmergencyItem={id:string;projectId:string;title:string;description:string;severity:string;latitude?:number;longitude?:number};
+  const dbRef=useRef<IDBDatabase|null>(null);
+  const openQueueDb=useCallback(()=>new Promise<IDBDatabase>((resolve,reject)=>{
+    if(dbRef.current){resolve(dbRef.current);return;}
+    if(!('indexedDB' in window)){reject(new Error('IndexedDB indisponible'));return;}
+    const req=indexedDB.open('company-os-field',1);
+    req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains('emergency'))db.createObjectStore('emergency',{keyPath:'id'});};
+    req.onsuccess=()=>{dbRef.current=req.result;resolve(req.result);}; req.onerror=()=>reject(req.error??new Error('IndexedDB error'));
+  }),[]);
+  const readQueue=useCallback(async():Promise<EmergencyItem[]>=>{try{const db=await openQueueDb();return await new Promise<EmergencyItem[]>((resolve,reject)=>{const tx=db.transaction('emergency','readonly');const req=tx.objectStore('emergency').getAll();req.onsuccess=()=>resolve(req.result as EmergencyItem[]);req.onerror=()=>reject(req.error);});}catch{return [];}},[openQueueDb]);
+  const putQueue=useCallback(async(item:EmergencyItem)=>{const db=await openQueueDb();await new Promise<void>((resolve,reject)=>{const tx=db.transaction('emergency','readwrite');tx.objectStore('emergency').put(item);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});},[openQueueDb]);
+  const deleteQueue=useCallback(async(id:string)=>{const db=await openQueueDb();await new Promise<void>((resolve,reject)=>{const tx=db.transaction('emergency','readwrite');tx.objectStore('emergency').delete(id);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});},[openQueueDb]);
+  const migrateLegacyQueue=useCallback(async()=>{try{const raw=localStorage.getItem(queueKey)??localStorage.getItem(legacyQueueKey);if(!raw)return;const items=JSON.parse(raw) as Omit<EmergencyItem,'id'>[];for(const item of items)await putQueue({...item,id:crypto.randomUUID()});localStorage.removeItem(queueKey);localStorage.removeItem(legacyQueueKey);}catch{}},[legacyQueueKey,putQueue,queueKey]);
+  const refreshQueueCount=useCallback(async()=>{const q=await readQueue();setQueued(q.length);},[readQueue]);
   const recorder=useRef<MediaRecorder|null>(null);
   const chunks=useRef<Blob[]>([]);
 
   const loadProjects=useCallback(async()=>{try{const r=await list<Row>('/projects');setProjects((Object.values(r).find(v=>Array.isArray(v)) as Row[])??[]);}catch(e){setError(e instanceof Error?e.message:'Erreur');}},[]);
   const loadCaptures=useCallback(async()=>{if(!projectId){setCaptures([]);return;}try{const d=await fetchProjectCaptures(projectId);setCaptures(d.captures);}catch(e){setError(e instanceof Error?e.message:'Erreur');}},[projectId]);
   useEffect(()=>{void loadProjects();},[loadProjects]); useEffect(()=>{void loadCaptures();},[loadCaptures]);
-  useEffect(()=>{setQueued(JSON.parse(localStorage.getItem(queueKey)||'[]').length);const on=()=>setOnline(true),off=()=>setOnline(false);window.addEventListener('online',on);window.addEventListener('offline',off);return()=>{window.removeEventListener('online',on);window.removeEventListener('offline',off);};},[]);
+  useEffect(()=>{void (async()=>{await migrateLegacyQueue();await refreshQueueCount();})();const on=()=>setOnline(true),off=()=>setOnline(false);window.addEventListener('online',on);window.addEventListener('offline',off);return()=>{window.removeEventListener('online',on);window.removeEventListener('offline',off);};},[migrateLegacyQueue,refreshQueueCount]);
 
   async function preview(id:string){try{const blob=await fetchCaptureBlob(id);setMediaUrls(v=>({...v,[id]:URL.createObjectURL(blob)}));}catch(e){setError(e instanceof Error?e.message:'Impossible de lire la capture');}}
   async function upload(file:File,type:string){
@@ -33,24 +48,22 @@ export default function FieldOps(){
     try{let position:GeolocationPosition|null=null; if(navigator.geolocation) position=await new Promise<GeolocationPosition|null>(resolve=>navigator.geolocation.getCurrentPosition(resolve,()=>resolve(null),{enableHighAccuracy:true,timeout:5000})); await uploadCapture(file,{capture_type:type,project_id:projectId,latitude:position?.coords.latitude,longitude:position?.coords.longitude});await loadCaptures();}
     catch(e){setError(e instanceof Error?e.message:'Erreur');}finally{setBusy(false);}
   }
-  async function syncEmergencyQueue(){
+  const syncEmergencyQueue=useCallback(async()=>{
     if(!navigator.onLine)return;
-    const q=JSON.parse(localStorage.getItem(queueKey)||'[]') as {projectId:string;title:string;description:string;severity:string;latitude?:number;longitude?:number}[];
-    if(!q.length)return;
-    const rest=q.slice();
-    for(let i=rest.length-1;i>=0;i--){try{await api(`/projects/${rest[i].projectId}/incidents`,{method:'POST',body:JSON.stringify(rest[i])});rest.splice(i,1);}catch{ /* keep queued */ }}
-    localStorage.setItem(queueKey,JSON.stringify(rest));setQueued(rest.length);
-  }
-  useEffect(()=>{if(online)void syncEmergencyQueue();},[online]);
+    const q=await readQueue();
+    for(const item of q){try{await api('/projects/'+item.projectId+'/incidents',{method:'POST',body:JSON.stringify(item)});await deleteQueue(item.id);}catch{}}
+    await refreshQueueCount();
+  },[deleteQueue,readQueue,refreshQueueCount]);
+  useEffect(()=>{if(online)void syncEmergencyQueue();},[online,syncEmergencyQueue]);line]);
   useEffect(()=>{const onBefore=()=>{if(recorder.current?.state==='recording')recorder.current.stop();};window.addEventListener('beforeunload',onBefore);return()=>window.removeEventListener('beforeunload',onBefore);},[]);
 
   async function createEmergency(){
     if(!projectId||!emergencyNote.trim())return;
     let pos:GeolocationPosition|null=null;if(navigator.geolocation)pos=await new Promise<GeolocationPosition|null>(r=>navigator.geolocation.getCurrentPosition(r,()=>r(null),{enableHighAccuracy:true,timeout:4000}));
-    const item={projectId,title:'Emergency field report',description:emergencyNote.trim(),severity:'critical',latitude:pos?.coords.latitude,longitude:pos?.coords.longitude};
-    if(!navigator.onLine){const q=JSON.parse(localStorage.getItem('cos.field.queue')||'[]');q.push(item);localStorage.setItem(queueKey,JSON.stringify(q));setQueued(q.length);setEmergencyNote('');return;}
-    try{await api(`/projects/${projectId}/incidents`,{method:'POST',body:JSON.stringify(item)});setEmergencyNote('');}
-    catch{const q=JSON.parse(localStorage.getItem('cos.field.queue')||'[]');q.push(item);localStorage.setItem('cos.field.queue',JSON.stringify(q));setQueued(q.length);}
+    const item={id:crypto.randomUUID(),projectId,title:'Emergency field report',description:emergencyNote.trim(),severity:'critical',latitude:pos?.coords.latitude,longitude:pos?.coords.longitude};
+    if(!navigator.onLine){await putQueue(item);await refreshQueueCount();setEmergencyNote('');return;}
+    try{await api('/projects/'+projectId+'/incidents',{method:'POST',body:JSON.stringify(item)});setEmergencyNote('');}
+    catch{await putQueue(item);await refreshQueueCount();setEmergencyNote('');}
   }
   async function startVoice(){
     if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){setError('Voice-to-Work n’est pas supporté par ce navigateur.');return;}
