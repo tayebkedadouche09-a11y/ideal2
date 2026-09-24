@@ -26,6 +26,12 @@ interface MeasurementBody {
   notes?: string;
 }
 
+async function assertProjectTenant(req: import('fastify').FastifyRequest, projectId: string): Promise<void> {
+  const auth = requireAuth(req);
+  const res = await pool.query(`SELECT 1 FROM project WHERE id = $1 AND company_id = $2`, [projectId, auth.companyId]);
+  if (res.rowCount === 0) throw new HttpError(404, 'Project not found');
+}
+
 interface ConsumptionBody {
   material_id?: string;
   actual_quantity?: number;
@@ -65,6 +71,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'read');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const auth = requireAuth(req);
     const res = await pool.query(`SELECT * FROM project WHERE id = $1 AND company_id = $2`, [id, auth.companyId]);
     if (res.rowCount === 0) throw new HttpError(404, 'Project not found');
@@ -99,6 +106,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'write');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const auth = requireAuth(req);
     const b = (req.body ?? {}) as MeasurementBody;
     if (!b.zone || !b.kind) throw new HttpError(400, 'zone and kind are required');
@@ -122,6 +130,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'write');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const auth = requireAuth(req);
     const b = (req.body ?? {}) as ConsumptionBody;
     if (!b.material_id || !b.actual_quantity || b.actual_quantity <= 0) {
@@ -206,6 +215,7 @@ export function projectRoutes(app: FastifyInstance): void {
     const auth = requireAuth(req);
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const res = await pool.query(
       `SELECT id, project_id, category AS kind, note AS content, created_by, created_at,
               'lesson_learned' AS source, NULL::text AS title
@@ -228,6 +238,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'write');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const auth = requireAuth(req);
     const b = (req.body ?? {}) as { title?: string; description?: string; planned_start?: string; planned_end?: string; assignee_employee_id?: string };
     if (!b.title) throw new HttpError(400, 'title is required');
@@ -244,6 +255,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'write');
     const { id, taskId } = req.params as { id: string; taskId: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const b = (req.body ?? {}) as { status?: string; title?: string; description?: string };
     const sets: string[] = [];
     const vals: unknown[] = [];
@@ -267,6 +279,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'write');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const auth = requireAuth(req);
     const b = (req.body ?? {}) as { employee_id?: string; user_id?: string; role_on_project?: string };
     if (!b.employee_id || !b.role_on_project) throw new HttpError(400, 'employee_id and role_on_project are required');
@@ -284,6 +297,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'write');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const auth = requireAuth(req);
     const b = (req.body ?? {}) as { report_date?: string; work_performed?: string; manpower_count?: number; problems?: string };
     if (!b.report_date) throw new HttpError(400, 'report_date is required');
@@ -302,6 +316,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'write');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const auth = requireAuth(req);
     const b = (req.body ?? {}) as {
       title?: string; description?: string; severity?: string;
@@ -339,6 +354,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'read');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const auth = requireAuth(req);
     const proj = await pool.query(`SELECT * FROM project WHERE id = $1 AND company_id = $2`, [id, auth.companyId]);
     if (proj.rowCount === 0) throw new HttpError(404, 'Project not found');
@@ -358,6 +374,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'read');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const auth = requireAuth(req);
 
     const projRes = await pool.query(`SELECT * FROM project WHERE id = $1 AND company_id = $2`, [id, auth.companyId]);
@@ -404,6 +421,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'read');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const res = await pool.query(
       `SELECT l.*, z.name AS zone_name FROM zone_boq_line l
          JOIN project_zone z ON z.id = l.zone_id
@@ -421,6 +439,7 @@ export function projectRoutes(app: FastifyInstance): void {
     requireScope(req, 'projects', 'write');
     const { id } = req.params as { id: string };
     assertProjectAccess(req, id);
+    await assertProjectTenant(req, id);
     const auth = requireAuth(req);
     const b = (req.body ?? {}) as {
       zone_id?: string; kind?: string; description?: string; quantity?: number; unit?: string;
