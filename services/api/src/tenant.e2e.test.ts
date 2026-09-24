@@ -581,3 +581,65 @@ test('E2E isolation: project sub-resources reject cross-tenant access; audit doe
   );
   assert.ok(aAudit[0]!.n >= 2, `expected A's task+incident audited, got ${aAudit[0]!.n}`);
 });
+
+// ---------------------------------------------------------------------------
+// Project creation via the public API (POST /projects). The web "Chantiers"
+// screen creates projects through this route; it must validate tenant ownership
+// of the client and reject duplicate company-scoped codes.
+// ---------------------------------------------------------------------------
+
+test('E2E project creation via API: POST /projects validates tenant and code uniqueness', async (t) => {
+  const app = await createApp();
+  t.after(async () => {
+    await app.close();
+  });
+
+  const orgA = await createOrg('ProjA');
+  const hA = authHeader((await login(app, orgA.email, orgA.password)).accessToken);
+  const clientA = await app.inject({ method: 'POST', url: '/clients', headers: hA, payload: { name: 'Client Proj A' } });
+  assert.equal(clientA.statusCode, 201, clientA.body);
+  const clientAId = clientA.json().id as string;
+
+  const code = `PRJ-${Date.now()}`;
+  const created = await app.inject({
+    method: 'POST',
+    url: '/projects',
+    headers: hA,
+    payload: { name: 'Chantier A', code, client_id: clientAId, site_address: 'Alger' },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const projectId = created.json().id as string;
+  assert.ok(projectId, 'expected a project id');
+
+  const got = await app.inject({ method: 'GET', url: `/projects/${projectId}`, headers: hA });
+  assert.equal(got.statusCode, 200, got.body);
+  assert.equal(got.json().project.code, code);
+  assert.equal(got.json().project.status, 'planned');
+
+  const dup = await app.inject({
+    method: 'POST',
+    url: '/projects',
+    headers: hA,
+    payload: { name: 'Chantier A2', code, client_id: clientAId },
+  });
+  assert.equal(dup.statusCode, 409, `duplicate code should be 409, got ${dup.statusCode}: ${dup.body}`);
+
+  const noClient = await app.inject({
+    method: 'POST',
+    url: '/projects',
+    headers: hA,
+    payload: { name: 'X', code: `X-${Date.now()}` },
+  });
+  assert.equal(noClient.statusCode, 400, noClient.body);
+
+  // Cross-tenant: company B must not create a project under A's client.
+  const orgB = await createOrg('ProjB');
+  const hB = authHeader((await login(app, orgB.email, orgB.password)).accessToken);
+  const cross = await app.inject({
+    method: 'POST',
+    url: '/projects',
+    headers: hB,
+    payload: { name: 'Stolen', code: `STL-${Date.now()}`, client_id: clientAId },
+  });
+  assert.equal(cross.statusCode, 400, `cross-tenant client must be rejected, got ${cross.statusCode}: ${cross.body}`);
+});

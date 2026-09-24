@@ -67,6 +67,39 @@ export function projectRoutes(app: FastifyInstance): void {
     return { projects: res.rows };
   });
 
+  app.post('/projects', async (req, reply) => {
+    requireScope(req, 'projects', 'write');
+    const auth = requireAuth(req);
+    const b = (req.body ?? {}) as {
+      name?: string; code?: string; client_id?: string; contract_id?: string; quote_id?: string;
+      site_address?: string; status?: string; planned_start?: string; planned_end?: string; contract_value?: number;
+    };
+    if (!b.name) throw new HttpError(400, 'name is required');
+    if (!b.code) throw new HttpError(400, 'code is required');
+    if (!b.client_id) throw new HttpError(400, 'client_id is required');
+    const STATUSES = ['planned', 'in_progress', 'suspended', 'completed', 'cancelled'];
+    const status = b.status && STATUSES.includes(b.status) ? b.status : 'planned';
+    // Tenant safety: the client must belong to the caller's company.
+    const client = await pool.query(`SELECT 1 FROM client WHERE id = $1 AND company_id = $2`, [b.client_id, auth.companyId]);
+    if (client.rowCount === 0) throw new HttpError(400, 'client_id not found in company');
+    let res;
+    try {
+      res = await pool.query<{ id: string }>(
+        `INSERT INTO project
+           (company_id, client_id, contract_id, quote_id, code, name, site_address, status, planned_start, planned_end, contract_value)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8::project_status,$9,$10,$11) RETURNING id`,
+        [auth.companyId, b.client_id, b.contract_id ?? null, b.quote_id ?? null, b.code, b.name,
+         b.site_address ?? null, status, b.planned_start ?? null, b.planned_end ?? null, b.contract_value ?? 0],
+      );
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') throw new HttpError(409, 'Project code already exists for this company');
+      throw err;
+    }
+    const id = res.rows[0]!.id;
+    await audit(req, 'create', 'project', id, b);
+    return reply.code(201).send({ id });
+  });
+
   app.get('/projects/:id', async (req) => {
     requireScope(req, 'projects', 'read');
     const { id } = req.params as { id: string };
