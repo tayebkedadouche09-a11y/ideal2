@@ -50,6 +50,21 @@ await app.register(rateLimit, {
   timeWindow: '1 minute',
 });
 
+// Production frontend/API are separate origins. Keep the allowlist explicit.
+app.addHook('onRequest', async (req, reply) => {
+  const origin = req.headers.origin;
+  if (origin === config.webOrigin) {
+    reply.header('access-control-allow-origin', origin);
+    reply.header('vary', 'Origin');
+    reply.header('access-control-allow-headers', 'authorization, content-type, x-request-id');
+    reply.header('access-control-allow-methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  }
+  if (req.method === 'OPTIONS') {
+    if (origin !== config.webOrigin) return reply.code(403).send({ error: 'CORS origin denied' });
+    return reply.code(204).send();
+  }
+});
+
 app.decorate('config', config);
 
 authGuard(app);
