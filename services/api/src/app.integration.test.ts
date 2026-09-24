@@ -19,3 +19,19 @@ test('API integration: health and authentication boundary', async (t) => {
   const portal = await app.inject({ method: 'GET', url: '/portal/profile' });
   assert.equal(portal.statusCode, 401);
 });
+
+
+test('API integration: sync routes require auth', async (t) => {
+  const app = await createApp();
+  t.after(async () => { await app.close(); });
+
+  for (const [method, url] of [
+    ['POST', '/sync/devices'],
+    ['POST', '/sync/push'],
+    ['GET', '/sync/pull'],
+    ['GET', '/sync/conflicts'],
+  ] as const) {
+    const res = await app.inject({ method, url });
+    assert.equal(res.statusCode, 401, `${method} ${url} must be protected`);
+  }
+});
