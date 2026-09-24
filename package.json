@@ -14,6 +14,7 @@
     "typecheck:api": "tsc -b services/api",
     "typecheck:web": "tsc --noEmit -p apps/web",
     "test": "npm run test -w @company-os/domain && npm run test -w @company-os/i18n && npm run test:integration -w @company-os/api",
+    "test:e2e": "npm run test:e2e -w @company-os/api",
     "dev:api": "npm run dev -w @company-os/api",
     "dev:web": "npm run dev -w @company-os/web",
     "db:up": "docker compose up -d postgres redis",

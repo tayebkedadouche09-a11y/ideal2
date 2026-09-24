@@ -9,7 +9,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "typecheck": "tsc -b --dry",
-    "test:integration": "tsc -b && node --test dist/app.integration.test.js"
+    "test:integration": "tsc -b && node --test dist/app.integration.test.js",
+    "test:e2e": "tsc -b && node --test dist/tenant.e2e.test.js dist/app.integration.test.js"
   },
   "dependencies": {
     "@company-os/domain": "*",
